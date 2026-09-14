@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sliding Number Puzzle</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="app-header">
+      <h1>Sliding Number Puzzle</h1>
+      <div class="controls">
+        <label class="size-picker">
+          Size
+          <select id="size-select">
+            <option value="3">3 x 3</option>
+            <option value="4" selected>4 x 4</option>
+            <option value="5">5 x 5</option>
+          </select>
+        </label>
+        <button id="new-game-btn" type="button">New Game</button>
+      </div>
+    </header>
+
+    <section class="stats" aria-live="polite">
+      <div class="stat">
+        <span class="stat-label">Moves</span>
+        <span id="moves-value" class="stat-value">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Time</span>
+        <span id="time-value" class="stat-value">00:00</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Best</span>
+        <span id="best-value" class="stat-value">-</span>
+      </div>
+    </section>
+
+    <section id="board-wrap" class="board-wrap">
+      <div id="board" class="board" role="grid" aria-label="Sliding number puzzle board"></div>
+      <div id="win-banner" class="win-banner" hidden>
+        <p>Solved! 🎉</p>
+        <span id="win-summary"></span>
+      </div>
+    </section>
+
+    <p class="hint">
+      Click/tap a tile next to the empty space, or use the arrow keys, to slide it. Arrange the
+      numbers in order from 1 up to the last tile, reading left to right, top to bottom, with the
+      empty space in the bottom-right corner.
+    </p>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>
