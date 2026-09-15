@@ -163,7 +163,7 @@ button:active {
 .win-banner {
   position: absolute;
   inset: 0;
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -173,6 +173,14 @@ button:active {
   border-radius: var(--radius);
   text-align: center;
   padding: 12px;
+}
+
+/* `.win-banner { display: flex }` alone would tie in specificity with the
+   browser's built-in `[hidden] { display: none }` rule and win (author CSS
+   beats the UA stylesheet on a tie), making the banner ignore the `hidden`
+   attribute entirely. Only show it once `hidden` is actually removed. */
+.win-banner:not([hidden]) {
+  display: flex;
 }
 
 .win-banner p {
