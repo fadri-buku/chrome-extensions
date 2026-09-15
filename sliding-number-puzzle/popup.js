@@ -21,8 +21,21 @@ const winSummary = document.getElementById("win-summary");
 const sizeSelect = document.getElementById("size-select");
 const newGameBtn = document.getElementById("new-game-btn");
 
-/** @type {{size:number, tiles:number[], blankIndex:number, moves:number, startTime:number, timerId:number|null, solved:boolean}} */
+/**
+ * @type {{size:number, tiles:number[], blankIndex:number, moves:number,
+ *   elapsedBaseMs:number, resumeAt:number, timerId:number|null, solved:boolean}}
+ *
+ * elapsedBaseMs is how much time had already elapsed before the *current*
+ * active run (i.e. since the popup was last opened or the game last
+ * resumed); resumeAt is the Date.now() timestamp that run started at. Live
+ * elapsed time is always elapsedBaseMs + (Date.now() - resumeAt), which
+ * lets a save/restore cycle (closing and reopening the popup) continue the
+ * clock without needing to persist a wall-clock start time across sessions.
+ */
 let game = null;
+
+const STORAGE_KEY = "sliding_puzzle_state";
+const VALID_SIZES = [3, 4, 5];
 
 function solvedTiles(size) {
   const total = size * size;
@@ -91,7 +104,8 @@ function newGame(size) {
     tiles,
     blankIndex: tiles.indexOf(EMPTY),
     moves: 0,
-    startTime: Date.now(),
+    elapsedBaseMs: 0,
+    resumeAt: Date.now(),
     timerId: null,
     solved: false,
   };
@@ -102,13 +116,100 @@ function newGame(size) {
   loadBest(size);
   render();
   startTimer();
+  persistState();
+}
+
+/** Rebuild an in-progress game from a previously saved, validated state. */
+function resumeGame(saved) {
+  if (game && game.timerId !== null) clearInterval(game.timerId);
+  sizeSelect.value = String(saved.size);
+
+  game = {
+    size: saved.size,
+    tiles: saved.tiles.slice(),
+    blankIndex: saved.blankIndex,
+    moves: saved.moves,
+    elapsedBaseMs: saved.elapsedMs,
+    resumeAt: Date.now(),
+    timerId: null,
+    solved: saved.solved,
+  };
+
+  movesEl.textContent = String(game.moves);
+  timeEl.textContent = formatTime(currentElapsedMs());
+  loadBest(game.size);
+  render();
+
+  if (game.solved) {
+    winSummary.textContent = `${game.moves} moves in ${formatTime(game.elapsedBaseMs)}`;
+    winBanner.hidden = false;
+  } else {
+    winBanner.hidden = true;
+    startTimer();
+  }
+}
+
+/** Elapsed play time for the current game, live-updated while unsolved. */
+function currentElapsedMs() {
+  if (!game) return 0;
+  if (game.solved) return game.elapsedBaseMs;
+  return game.elapsedBaseMs + (Date.now() - game.resumeAt);
 }
 
 function startTimer() {
   game.timerId = setInterval(() => {
     if (!game || game.solved) return;
-    timeEl.textContent = formatTime(Date.now() - game.startTime);
+    timeEl.textContent = formatTime(currentElapsedMs());
+    persistState();
   }, 1000);
+}
+
+/** Save the current game so it can be picked up again after the popup closes. */
+function persistState() {
+  if (!game) return;
+  chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      size: game.size,
+      tiles: game.tiles,
+      blankIndex: game.blankIndex,
+      moves: game.moves,
+      elapsedMs: currentElapsedMs(),
+      solved: game.solved,
+    },
+  });
+}
+
+/** Defend against corrupted/unexpected data in storage (e.g. a future format change). */
+function isValidSavedState(saved) {
+  if (!saved || typeof saved !== "object") return false;
+  if (!VALID_SIZES.includes(saved.size)) return false;
+
+  const total = saved.size * saved.size;
+  if (!Array.isArray(saved.tiles) || saved.tiles.length !== total) return false;
+
+  const seen = new Set(saved.tiles);
+  if (seen.size !== total) return false;
+  for (let value = 0; value < total; value++) {
+    if (!seen.has(value)) return false;
+  }
+
+  if (saved.tiles[saved.blankIndex] !== EMPTY) return false;
+  if (!Number.isInteger(saved.moves) || saved.moves < 0) return false;
+  if (typeof saved.elapsedMs !== "number" || saved.elapsedMs < 0) return false;
+
+  return true;
+}
+
+/** Entry point: continue a saved game if there is a valid one, else start fresh. */
+function initGame() {
+  chrome.storage.local.get([STORAGE_KEY], (result) => {
+    const saved = result[STORAGE_KEY];
+    if (isValidSavedState(saved)) {
+      resumeGame(saved);
+    } else {
+      newGame(Number(sizeSelect.value));
+    }
+  });
 }
 
 function formatTime(ms) {
@@ -156,6 +257,7 @@ function attemptMove(index) {
 
   render();
   checkWinCondition();
+  persistState();
 }
 
 /** Move the blank cell one step in `direction` (used by arrow-key input). */
@@ -177,9 +279,10 @@ function moveBlank(direction) {
 function checkWinCondition() {
   if (!isSolved(game.tiles)) return;
 
+  const elapsedMs = currentElapsedMs();
   game.solved = true;
+  game.elapsedBaseMs = elapsedMs; // freeze the clock at the winning moment
   clearInterval(game.timerId);
-  const elapsedMs = Date.now() - game.startTime;
   timeEl.textContent = formatTime(elapsedMs);
 
   winSummary.textContent = `${game.moves} moves in ${formatTime(elapsedMs)}`;
@@ -226,4 +329,4 @@ document.addEventListener("keydown", (event) => {
   moveBlank(event.key);
 });
 
-newGame(Number(sizeSelect.value));
+initGame();

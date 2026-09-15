@@ -13,6 +13,9 @@ step, no external dependencies.
   slide it.
 - Move counter and a live timer.
 - Per-size "best score" (fewest moves) saved locally via `chrome.storage.local`.
+- **Resumable:** close the popup mid-game and reopen it (even after restarting
+  Chrome) — your board, move count, and timer pick up right where you left
+  off.
 - Every shuffle is **guaranteed solvable** (see [How the shuffle
   works](#how-the-shuffle-works) below) — you will never get stuck on an
   unsolvable board.
@@ -124,6 +127,37 @@ solution actually exists.
   bumps the move counter.
 - `moveBlank(direction)` handles arrow-key input by translating a direction
   into the target cell index and delegating to `attemptMove()`.
+
+### Resuming after the popup closes
+
+A Chrome popup's page (and all its JS state) is torn down the instant it
+loses focus, so "remembering" the game means writing it to
+`chrome.storage.local` and reading it back on the next open — there is no
+persistent background state to fall back on. `persistState()` saves the full
+board (`size`, `tiles`, `blankIndex`, `moves`, elapsed time, and `solved`)
+under one storage key after every move and once a second while the timer is
+running (so at most ~1 second of play is ever "lost" if the browser itself
+crashes between writes).
+
+The elapsed-time bookkeeping needs a small trick because there is no
+reliable moment to intercept "the popup is about to close" and no
+wall-clock start time that would survive Chrome (or the whole machine) being
+shut down for hours: `currentElapsedMs()` is always computed as
+`elapsedBaseMs + (Date.now() - resumeAt)`, where `resumeAt` is simply "when
+this open of the popup began." Every time the popup opens, `resumeAt` is
+reset to `Date.now()` and `elapsedBaseMs` is seeded from whatever was last
+persisted — so the displayed time keeps counting up seamlessly across a
+close/reopen without ever having to compare timestamps across a browser
+restart.
+
+On startup, `initGame()` reads the saved state and hands it to
+`resumeGame()` only if `isValidSavedState()` confirms it's well-formed (right
+size, tiles are exactly one each of `0..size²-1`, the blank position
+actually matches, sane move/time values); this guards against a corrupted
+or unexpected-shape record (e.g. from a future version of the extension) —
+if validation fails for any reason, it falls back to `newGame()` instead of
+throwing. Starting a new game (via the **New Game** button or changing the
+size) simply overwrites the saved state with the fresh board.
 
 ### Win detection, timer, and best score
 
