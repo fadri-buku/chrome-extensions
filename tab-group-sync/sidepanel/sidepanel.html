@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Tab Group Sync</title>
+<link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+<header>
+  <h1>Tab Group Sync</h1>
+  <p id="status" class="status"></p>
+</header>
+
+<main>
+  <section id="open-groups" aria-label="Open tab groups"></section>
+
+  <section id="closed-pinned-section" hidden>
+    <h2>Pinned, not open</h2>
+    <div id="closed-pinned"></div>
+  </section>
+
+  <p id="empty-state" class="empty-state" hidden>
+    No tab groups open yet. Group some tabs in Chrome (right-click a tab →
+    "Add tab to new group") and they'll show up here.
+  </p>
+</main>
+
+<script type="module" src="sidepanel.js"></script>
+</body>
+</html>
