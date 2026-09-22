@@ -51,6 +51,14 @@ no external dependencies.
 - **Synced across devices** via `chrome.storage.sync` — pinned items and
   custom titles follow you automatically to any device signed into the same
   Chrome profile, no extra sign-in step.
+- **Mirrored as real bookmarks**: every pinned tab/group also gets a
+  matching bookmark (a folder of bookmarks for a group, one bookmark for a
+  solo tab) under a "Tab Sync for All" folder in your Bookmarks. This rides
+  Chrome's own bookmark sync — a separate, much higher-quota system from
+  `chrome.storage.sync` — so the underlying URLs persist independently of
+  the extension, are visible in Chrome's Bookmark Manager, and even show up
+  on Chrome mobile (which can't run extensions). Unpinning leaves the
+  bookmark in place; **Forget** removes it too.
 - **Window limit** — cap how many normal Chrome windows can be open at once
   (default **2**, configurable in the panel's "Window limit" section, and
   itself synced via `chrome.storage.sync`). Open one over the limit and its
@@ -76,6 +84,7 @@ tab-sync-for-all/
 ├── lib/
 │   ├── storage.js            # sync/local/session storage layer for pinned items/titles (with quota fallback)
 │   ├── tabgroups.js          # shared helpers: snapshot/restore a pinned item, live-sync vs. force-pin healing
+│   ├── bookmarks.js          # mirrors a pinned item into a bookmark folder/bookmark
 │   └── windowLimit.js        # window-count cap: settings + enforcement, shared by background & panel
 ├── content/
 │   ├── title-override.js     # applies a custom title on matching pages, re-applies on SPA changes
@@ -158,6 +167,25 @@ that triggers Chrome's native "leave site?" dialog on any attempt to close
 or navigate away from that tab — one extra deliberate click before it goes,
 on top of the auto-reopen healing described above.
 
+### Bookmark mirroring (`lib/bookmarks.js`)
+
+Every place that persists a pinned item's tab list (`tabgroups.js`'s live
+snapshot, and the panel's pin/force-pin actions) goes through
+`tabgroups.saveAndSyncBookmark`, which calls `bookmarks.syncItemBookmark`
+before writing to storage. That function gets-or-creates a "Tab Sync for
+All" bookmark folder (searched by title first, so it survives a service
+worker restart without creating a duplicate; created under "Other
+Bookmarks" if missing), then for a group reconciles that folder's children
+against the pinned item's current tab list (creating missing bookmarks,
+updating titles, removing ones no longer in the list) or, for a solo tab,
+creates/updates one bookmark directly under the root. The resulting
+bookmark/folder id is merged back into the stored record so later syncs
+reuse it instead of creating a new one each time — and if the user deletes
+it manually from the Bookmark Manager, the next sync just recreates it.
+This is one-way: edits made directly in the Bookmark Manager aren't read
+back into the pinned item. "Forget" (not plain unpin) removes the mirrored
+bookmark, via `chrome.bookmarks.remove`/`removeTree`.
+
 ### Window limit (`lib/windowLimit.js`)
 
 `chrome.windows.onCreated` fires for every new normal browser window.
@@ -172,15 +200,16 @@ window and editable from the panel's "Window limit" section.
 
 ## Permissions
 
-- `tabGroups`, `tabs`, `windows`, `storage`, `sidePanel`, `notifications` —
-  read/modify groups, tabs and windows; persist state; alert on a blocked
-  window or a healed force-pin.
+- `tabGroups`, `tabs`, `windows`, `storage`, `sidePanel`, `notifications`,
+  `bookmarks` — read/modify groups, tabs, windows and bookmarks; persist
+  state; alert on a blocked window or a healed force-pin.
 - Content scripts matching `<all_urls>` — needed only to apply custom tab
   titles and the force-pin confirmation dialog; neither reads page content
   otherwise.
 
 No network requests are made — sync happens entirely through Chrome's own
-account sync infrastructure (`chrome.storage.sync`), not a custom backend.
+account sync infrastructure (`chrome.storage.sync` and, for bookmarks,
+Chrome's bookmark sync), not a custom backend.
 
 ## Known limitations
 
@@ -218,3 +247,9 @@ account sync infrastructure (`chrome.storage.sync`), not a custom backend.
     Chrome tab group only if that group still exists; if the whole group
     was closed at once, the entire group is recreated fresh from its
     last-known tab list.
+- **Bookmark mirroring is one-way** (pinned item → bookmark): renaming,
+  reordering, or deleting entries directly in the Bookmark Manager doesn't
+  feed back into the pinned item — the next live-sync pass just recreates
+  whatever it expects to see. It also doesn't sync anything by itself if
+  Chrome's bookmark sync isn't enabled on your profile; that's a separate
+  toggle from the "Tabs" sync setting used for pin/restore matching.

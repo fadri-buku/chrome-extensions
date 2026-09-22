@@ -221,3 +221,4 @@ select.color-select {
 }
 .window-limit-count { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
 .window-limit-note { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.bookmark-note { margin: 4px 14px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }

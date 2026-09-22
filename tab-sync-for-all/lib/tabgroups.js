@@ -3,8 +3,20 @@
 // worker and the side panel.
 
 import * as store from "./storage.js";
+import * as bookmarks from "./bookmarks.js";
 
 const REOPENABLE_URL = /^(https?|file|ftp):/;
+
+// Saves a pinned item and mirrors it into a bookmark (folder for a group,
+// single bookmark for a solo tab), persisting whatever bookmark id(s) come
+// back so future syncs reuse the same bookmark instead of creating a new
+// one every time.
+export async function saveAndSyncBookmark(item) {
+  const bookmarkIds = await bookmarks.syncItemBookmark(item);
+  const merged = { ...item, ...bookmarkIds };
+  await store.savePinnedItem(merged);
+  return merged;
+}
 
 export async function snapshotGroupTabs(chromeGroupId) {
   const tabs = await chrome.tabs.query({ groupId: chromeGroupId });
@@ -83,7 +95,7 @@ async function refreshLiveSnapshot(existing, ref) {
     }
     const tabs = await snapshotGroupTabs(ref.id);
     if (tabs.length === 0) return; // avoid persisting a transient empty snapshot
-    await store.savePinnedItem({
+    await saveAndSyncBookmark({
       id: existing.id,
       kind: "group",
       title: group.title,
@@ -91,6 +103,7 @@ async function refreshLiveSnapshot(existing, ref) {
       collapsed: group.collapsed,
       tabs,
       forced: false,
+      bookmarkFolderId: existing.bookmarkFolderId,
     });
   } else {
     let tab;
@@ -100,12 +113,13 @@ async function refreshLiveSnapshot(existing, ref) {
       await store.removeLiveMapEntry(existing.id);
       return;
     }
-    await store.savePinnedItem({
+    await saveAndSyncBookmark({
       id: existing.id,
       kind: "tab",
       title: tab.title,
       tabs: [{ url: tab.url, title: tab.title }],
       forced: false,
+      bookmarkId: existing.bookmarkId,
     });
   }
 }

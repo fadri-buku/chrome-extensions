@@ -52,6 +52,8 @@ export async function savePinnedItem(item) {
     forced: !!item.forced,
     updatedAt: Date.now(),
   };
+  if (item.bookmarkFolderId) record.bookmarkFolderId = item.bookmarkFolderId;
+  if (item.bookmarkId) record.bookmarkId = item.bookmarkId;
   try {
     await chrome.storage.sync.set({ [key]: record });
     await chrome.storage.local.remove(key);

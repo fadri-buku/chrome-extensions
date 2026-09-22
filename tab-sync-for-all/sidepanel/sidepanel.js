@@ -1,5 +1,6 @@
 import * as store from "../lib/storage.js";
 import * as tg from "../lib/tabgroups.js";
+import * as bookmarks from "../lib/bookmarks.js";
 import * as windowLimit from "../lib/windowLimit.js";
 
 const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
@@ -396,7 +397,7 @@ async function togglePin(group, existingPinnedId, tabs) {
     await store.removeLiveMapEntry(existingPinnedId);
   } else {
     const id = crypto.randomUUID();
-    await store.savePinnedItem({
+    await tg.saveAndSyncBookmark({
       id,
       kind: "group",
       title: group.title,
@@ -416,7 +417,7 @@ async function togglePinTab(tab, existingPinnedId) {
     await store.removeLiveMapEntry(existingPinnedId);
   } else {
     const id = crypto.randomUUID();
-    await store.savePinnedItem({
+    await tg.saveAndSyncBookmark({
       id,
       kind: "tab",
       title: tab.title,
@@ -431,7 +432,7 @@ async function togglePinTab(tab, existingPinnedId) {
 async function toggleForced(pinnedId) {
   const rec = pinnedRecordFor(pinnedId);
   if (!rec) return;
-  await store.savePinnedItem({ ...rec, forced: !rec.forced });
+  await tg.saveAndSyncBookmark({ ...rec, forced: !rec.forced });
   loadState();
 }
 
@@ -460,6 +461,8 @@ async function restorePinned(pinned) {
 }
 
 async function forgetPinned(pinnedId) {
+  const rec = pinnedRecordFor(pinnedId);
+  if (rec) await bookmarks.removeItemBookmark(rec);
   await store.deletePinnedItem(pinnedId);
   await store.removeLiveMapEntry(pinnedId);
   loadState();
