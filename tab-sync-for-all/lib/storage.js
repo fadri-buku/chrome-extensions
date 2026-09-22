@@ -1,16 +1,17 @@
-// Persistence layer. Pinned groups and custom titles are written to
-// chrome.storage.sync first (so they follow the signed-in Chrome profile to
-// other devices) and fall back to chrome.storage.local only when a write
-// trips sync's quota (QUOTA_BYTES_PER_ITEM ~8KB, QUOTA_BYTES ~100KB total).
-// A "live" mapping of pinned-group-id -> currently-open tabGroup id lives in
-// chrome.storage.session, which is shared between background and side panel
-// but cleared automatically when the browser closes.
+// Persistence layer. Pinned items (whole tab groups, or individual tabs) and
+// custom titles are written to chrome.storage.sync first (so they follow the
+// signed-in Chrome profile to other devices) and fall back to
+// chrome.storage.local only when a write trips sync's quota
+// (QUOTA_BYTES_PER_ITEM ~8KB, QUOTA_BYTES ~100KB total).
+// A "live" mapping of pinned-item-id -> {kind, id} (currently-open tabGroup
+// or tab id) lives in chrome.storage.session, shared between background and
+// side panel but cleared automatically when the browser closes.
 
 const PIN_PREFIX = "pin:";
 const TITLES_KEY = "customTitles";
 const LIVE_MAP_KEY = "liveMap";
 
-export async function getAllPinnedGroups() {
+export async function getAllPinnedItems() {
   const [syncItems, localItems] = await Promise.all([
     chrome.storage.sync.get(null),
     chrome.storage.local.get(null),
@@ -18,26 +19,37 @@ export async function getAllPinnedGroups() {
   const merged = new Map();
   for (const [key, value] of Object.entries(localItems)) {
     if (key.startsWith(PIN_PREFIX)) {
-      merged.set(key.slice(PIN_PREFIX.length), { ...value, storageArea: "local" });
+      merged.set(key.slice(PIN_PREFIX.length), normalize(value, "local"));
     }
   }
   // Sync wins over a stale local fallback copy of the same id.
   for (const [key, value] of Object.entries(syncItems)) {
     if (key.startsWith(PIN_PREFIX)) {
-      merged.set(key.slice(PIN_PREFIX.length), { ...value, storageArea: "sync" });
+      merged.set(key.slice(PIN_PREFIX.length), normalize(value, "sync"));
     }
   }
   return [...merged.values()];
 }
 
-export async function savePinnedGroup(group) {
-  const key = PIN_PREFIX + group.id;
+function normalize(value, storageArea) {
+  return {
+    kind: value.kind === "tab" ? "tab" : "group", // default older records to "group"
+    forced: !!value.forced,
+    ...value,
+    storageArea,
+  };
+}
+
+export async function savePinnedItem(item) {
+  const key = PIN_PREFIX + item.id;
   const record = {
-    id: group.id,
-    title: group.title || "",
-    color: group.color || "grey",
-    collapsed: !!group.collapsed,
-    tabs: group.tabs || [],
+    id: item.id,
+    kind: item.kind === "tab" ? "tab" : "group",
+    title: item.title || "",
+    color: item.color || "grey",
+    collapsed: !!item.collapsed,
+    tabs: item.tabs || [],
+    forced: !!item.forced,
     updatedAt: Date.now(),
   };
   try {
@@ -50,7 +62,7 @@ export async function savePinnedGroup(group) {
   }
 }
 
-export async function deletePinnedGroup(id) {
+export async function deletePinnedItem(id) {
   const key = PIN_PREFIX + id;
   await Promise.allSettled([
     chrome.storage.sync.remove(key),
@@ -89,14 +101,15 @@ export async function clearCustomTitle(url) {
   return writeCustomTitles(all);
 }
 
+// Live map values are { kind: "group" | "tab", id: <chrome tabGroup or tab id> }.
 export async function getLiveMap() {
   const res = await chrome.storage.session.get(LIVE_MAP_KEY);
   return res[LIVE_MAP_KEY] || {};
 }
 
-export async function setLiveMapEntry(pinnedId, chromeGroupId) {
+export async function setLiveMapEntry(pinnedId, ref) {
   const map = await getLiveMap();
-  map[pinnedId] = chromeGroupId;
+  map[pinnedId] = ref;
   await chrome.storage.session.set({ [LIVE_MAP_KEY]: map });
 }
 
@@ -104,16 +117,4 @@ export async function removeLiveMapEntry(pinnedId) {
   const map = await getLiveMap();
   delete map[pinnedId];
   await chrome.storage.session.set({ [LIVE_MAP_KEY]: map });
-}
-
-export async function removeLiveMapEntryByGroupId(chromeGroupId) {
-  const map = await getLiveMap();
-  let changed = false;
-  for (const [pinnedId, groupId] of Object.entries(map)) {
-    if (groupId === chromeGroupId) {
-      delete map[pinnedId];
-      changed = true;
-    }
-  }
-  if (changed) await chrome.storage.session.set({ [LIVE_MAP_KEY]: map });
 }

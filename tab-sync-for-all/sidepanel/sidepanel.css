@@ -103,6 +103,7 @@ main { padding-bottom: 20px; }
 }
 .icon-btn:hover { background: var(--border); color: var(--fg); }
 .icon-btn.active { color: #f59e0b; }
+.icon-btn.locked { color: var(--danger); }
 .icon-btn.danger:hover { color: var(--danger); }
 
 select.color-select {

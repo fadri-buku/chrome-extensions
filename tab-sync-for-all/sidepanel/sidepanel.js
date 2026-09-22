@@ -1,4 +1,5 @@
 import * as store from "../lib/storage.js";
+import * as tg from "../lib/tabgroups.js";
 import * as windowLimit from "../lib/windowLimit.js";
 
 const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
@@ -35,7 +36,7 @@ async function loadState() {
   const [windows, groups, pinnedDefs, liveMap, customTitles, limit] = await Promise.all([
     chrome.windows.getAll({ populate: true }),
     chrome.tabGroups.query({}),
-    store.getAllPinnedGroups(),
+    store.getAllPinnedItems(),
     store.getLiveMap(),
     store.getCustomTitles(),
     windowLimit.getLimit(),
@@ -55,12 +56,25 @@ function tabsForGroup(groupId) {
 }
 
 function pinnedIdForGroup(groupId) {
-  const entry = Object.entries(state.liveMap).find(([, v]) => v === groupId);
+  const entry = Object.entries(state.liveMap).find(([, ref]) => ref?.kind === "group" && ref.id === groupId);
   return entry ? entry[0] : null;
+}
+
+function pinnedIdForTab(tabId) {
+  const entry = Object.entries(state.liveMap).find(([, ref]) => ref?.kind === "tab" && ref.id === tabId);
+  return entry ? entry[0] : null;
+}
+
+function pinnedRecordFor(pinnedId) {
+  return pinnedId ? state.pinnedDefs.find((p) => p.id === pinnedId) || null : null;
 }
 
 function openGroupIds() {
   return new Set(state.groups.map((g) => g.id));
+}
+
+function openTabIds() {
+  return new Set(state.windows.flatMap((w) => (w.tabs || []).map((t) => t.id)));
 }
 
 function ungroupedTabsForWindow(windowId) {
@@ -114,10 +128,14 @@ function render() {
   }
   emptyStateEl.hidden = anyContent;
 
-  const open = openGroupIds();
+  const openGroups = openGroupIds();
+  const openTabs = openTabIds();
   const closed = state.pinnedDefs.filter((p) => {
-    const liveId = state.liveMap[p.id];
-    return !liveId || !open.has(liveId);
+    const ref = state.liveMap[p.id];
+    if (!ref) return true;
+    if (ref.kind === "group") return !openGroups.has(ref.id);
+    if (ref.kind === "tab") return !openTabs.has(ref.id);
+    return true;
   });
   closedSectionEl.hidden = closed.length === 0;
   for (const p of closed) closedListEl.appendChild(renderClosedPinnedCard(p));
@@ -131,6 +149,33 @@ function renderWindowLimit() {
   }
   const openCount = state.windows.filter((w) => !w.incognito).length;
   windowLimitCountEl.textContent = `${openCount} window${openCount === 1 ? "" : "s"} open now`;
+}
+
+function pinLockButtons(pinnedId, onTogglePin, onToggleForced, pinTitleOn, pinTitleOff) {
+  const rec = pinnedRecordFor(pinnedId);
+  const pinBtn = el(
+    "button",
+    {
+      class: "icon-btn" + (pinnedId ? " active" : ""),
+      title: pinnedId ? pinTitleOn : pinTitleOff,
+      onclick: onTogglePin,
+    },
+    pinnedId ? "★" : "☆"
+  );
+  const lockBtn = pinnedId
+    ? el(
+        "button",
+        {
+          class: "icon-btn" + (rec?.forced ? " locked" : ""),
+          title: rec?.forced
+            ? "Force-pinned: reopens automatically if closed. Click to allow normal closing."
+            : "Force-pin: reopen automatically if this gets closed.",
+          onclick: onToggleForced,
+        },
+        "🔒"
+      )
+    : null;
+  return [pinBtn, lockBtn];
 }
 
 function renderGroupCard(group) {
@@ -153,14 +198,12 @@ function renderGroupCard(group) {
     onchange: (e) => renameGroup(group.id, e.target.value),
   });
 
-  const pinBtn = el(
-    "button",
-    {
-      class: "icon-btn" + (pinnedId ? " active" : ""),
-      title: pinnedId ? "Unpin (stop tracking & syncing this group)" : "Pin (keep this group across restarts & sync it)",
-      onclick: () => togglePin(group, pinnedId, tabs),
-    },
-    pinnedId ? "★" : "☆"
+  const [pinBtn, lockBtn] = pinLockButtons(
+    pinnedId,
+    () => togglePin(group, pinnedId, tabs),
+    () => toggleForced(pinnedId),
+    "Unpin (stop tracking & syncing this group)",
+    "Pin (keep this group across restarts & sync it)"
   );
 
   const collapseBtn = el(
@@ -187,6 +230,7 @@ function renderGroupCard(group) {
 
   const header = el("div", { class: "group-header" }, [
     pinBtn,
+    lockBtn,
     titleInput,
     colorSelect,
     collapseBtn,
@@ -222,6 +266,7 @@ function renderTabRow(tab, ownerGroup) {
   const otherGroups = ownerGroup ? state.groups.filter((g) => g.id !== ownerGroup.id) : state.groups;
   const title = displayTitle(tab);
   const isCustom = !!state.customTitles[tab.url];
+  const tabPinnedId = pinnedIdForTab(tab.id);
 
   const titleSpan = el(
     "span",
@@ -233,7 +278,17 @@ function renderTabRow(tab, ownerGroup) {
     title
   );
 
+  const [pinBtn, lockBtn] = pinLockButtons(
+    tabPinnedId,
+    () => togglePinTab(tab, tabPinnedId),
+    () => toggleForced(tabPinnedId),
+    "Unpin this tab",
+    "Pin this tab (keep it across restarts & sync it)"
+  );
+
   const row = el("li", { class: "tab-row" }, [
+    pinBtn,
+    lockBtn,
     tab.favIconUrl
       ? el("img", { class: "tab-favicon", src: tab.favIconUrl, alt: "" })
       : el("span", { class: "tab-favicon" }),
@@ -289,16 +344,20 @@ function beginTitleEdit(row, tab, titleSpan) {
 }
 
 function renderClosedPinnedCard(pinned) {
+  const isTab = pinned.kind === "tab";
+  const label = isTab ? pinned.title || pinned.tabs[0]?.url || "(tab)" : pinned.title || "(unnamed group)";
+  const metaParts = [];
+  if (!isTab) metaParts.push(`${pinned.tabs.length} tab${pinned.tabs.length === 1 ? "" : "s"}`);
+  metaParts.push(pinned.storageArea === "local" ? "local only" : "synced");
+  if (pinned.forced) metaParts.push("force-pinned");
+
   const card = el("div", { class: "closed-pinned-card" }, [
     el("span", { class: "swatch" }),
-    el("div", { class: "title" }, [
-      pinned.title || "(unnamed group)",
-      el("div", { class: "meta" }, `${pinned.tabs.length} tab${pinned.tabs.length === 1 ? "" : "s"} · ${pinned.storageArea === "local" ? "local only" : "synced"}`),
-    ]),
+    el("div", { class: "title" }, [label, el("div", { class: "meta" }, metaParts.join(" · "))]),
     el("button", { onclick: () => restorePinned(pinned) }, "Restore"),
     el("button", { onclick: () => forgetPinned(pinned.id) }, "Forget"),
   ]);
-  card.style.setProperty("--group-color", COLOR_HEX[pinned.color] || COLOR_HEX.grey);
+  card.style.setProperty("--group-color", isTab ? COLOR_HEX.grey : COLOR_HEX[pinned.color] || COLOR_HEX.grey);
   return card;
 }
 
@@ -333,19 +392,46 @@ async function closeGroup(groupId) {
 
 async function togglePin(group, existingPinnedId, tabs) {
   if (existingPinnedId) {
-    await store.deletePinnedGroup(existingPinnedId);
+    await store.deletePinnedItem(existingPinnedId);
     await store.removeLiveMapEntry(existingPinnedId);
   } else {
     const id = crypto.randomUUID();
-    await store.savePinnedGroup({
+    await store.savePinnedItem({
       id,
+      kind: "group",
       title: group.title,
       color: group.color,
       collapsed: group.collapsed,
       tabs: tabs.map((t) => ({ url: t.url, title: t.title })),
+      forced: false,
     });
-    await store.setLiveMapEntry(id, group.id);
+    await store.setLiveMapEntry(id, { kind: "group", id: group.id });
   }
+  loadState();
+}
+
+async function togglePinTab(tab, existingPinnedId) {
+  if (existingPinnedId) {
+    await store.deletePinnedItem(existingPinnedId);
+    await store.removeLiveMapEntry(existingPinnedId);
+  } else {
+    const id = crypto.randomUUID();
+    await store.savePinnedItem({
+      id,
+      kind: "tab",
+      title: tab.title,
+      tabs: [{ url: tab.url, title: tab.title }],
+      forced: false,
+    });
+    await store.setLiveMapEntry(id, { kind: "tab", id: tab.id });
+  }
+  loadState();
+}
+
+async function toggleForced(pinnedId) {
+  const rec = pinnedRecordFor(pinnedId);
+  if (!rec) return;
+  await store.savePinnedItem({ ...rec, forced: !rec.forced });
   loadState();
 }
 
@@ -366,34 +452,15 @@ async function moveTabToNewGroup(tabId) {
 }
 
 async function restorePinned(pinned) {
-  setStatus(`Restoring "${pinned.title || "group"}"…`);
-  const wins = await chrome.windows.getAll({ windowTypes: ["normal"] });
-  const windowId = wins.length ? wins.sort((a, b) => b.id - a.id)[0].id : (await chrome.windows.create({})).id;
-
-  const tabIds = [];
-  for (const t of pinned.tabs) {
-    try {
-      const tab = await chrome.tabs.create({ url: t.url, active: false, windowId });
-      tabIds.push(tab.id);
-    } catch (err) {
-      // skip URLs the browser refuses to open (e.g. chrome:// internal pages)
-    }
-  }
-  if (tabIds.length) {
-    const groupId = await chrome.tabs.group({ tabIds });
-    await chrome.tabGroups.update(groupId, {
-      title: pinned.title,
-      color: pinned.color,
-      collapsed: pinned.collapsed,
-    });
-    await store.setLiveMapEntry(pinned.id, groupId);
-  }
+  setStatus(`Restoring "${pinned.title || "item"}"…`);
+  const windowId = await tg.findWindowForRestore();
+  await tg.restorePinnedItem(pinned, windowId);
   setStatus("");
   loadState();
 }
 
 async function forgetPinned(pinnedId) {
-  await store.deletePinnedGroup(pinnedId);
+  await store.deletePinnedItem(pinnedId);
   await store.removeLiveMapEntry(pinnedId);
   loadState();
 }

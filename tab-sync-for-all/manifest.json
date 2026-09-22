@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tab Sync for All",
   "version": "1.0.0",
-  "description": "Manage tab groups across every open window from one panel, give any tab a custom title, pin groups so they survive a browser restart and sync across your devices, and cap how many windows you can have open at once.",
+  "description": "Manage every tab across every open window from one panel, give any tab a custom title, pin tabs/groups so they survive a browser restart and sync across your devices, force-pin the ones you don't want closed by accident, and cap how many windows you can have open at once.",
   "permissions": ["tabGroups", "tabs", "windows", "storage", "sidePanel", "notifications"],
   "background": {
     "service_worker": "background.js",
@@ -22,7 +22,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/title-override.js"],
+      "js": ["content/title-override.js", "content/force-pin-guard.js"],
       "run_at": "document_idle",
       "all_frames": false
     }
