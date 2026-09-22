@@ -1,21 +1,24 @@
 # Tab Sync for All (Chrome Extension)
 
-A side-panel tab manager: see and control every tab group across **all your
-open windows** from one place, give any tab a custom title, **pin** groups
-so they survive closing/reopening the browser and follow you to other
-devices signed into the same Chrome profile, and **cap how many windows**
-you're allowed to have open at once. Manifest V3, no build step, no
-external dependencies.
+A side-panel tab manager: see and control **every tab in every open
+window** — grouped or not — from one place, give any tab a custom title,
+**pin** groups so they survive closing/reopening the browser and follow you
+to other devices signed into the same Chrome profile, and **cap how many
+windows** you're allowed to have open at once. Manifest V3, no build step,
+no external dependencies.
 
 ## Features
 
 - **Unified manager panel** (Chrome's side panel, not a popup — stays open
-  while you work): lists every tab group in every open window, grouped by
-  window, refreshed live as groups/tabs change.
+  while you work): lists every tab in every open window, grouped by window.
+  Tabs that belong to a Chrome tab group are shown in their group's card;
+  everything else shows up under an "Ungrouped tabs" card per window, so
+  nothing is left out of view. Refreshed live as tabs/groups change.
 - Per group: rename, recolor, collapse/expand, jump to it (focuses its
   window and the first tab), or close all its tabs — all from the panel.
-- **Move tabs between groups across windows** — each tab row has a "Move…"
-  dropdown listing every other open group, even ones in a different window.
+- **Move any tab into a group, across windows** — every tab row (grouped or
+  not) has a "Move…" dropdown listing every open group anywhere, plus a
+  "+ New group" option to pop it into a fresh group on the spot.
 - **Custom tab titles**: click any tab's title in the panel to override
   what's shown in the tab strip and tab-group manager. Sticks across page
   reloads and even survives sites that rewrite `document.title` themselves
@@ -160,3 +163,6 @@ account sync infrastructure (`chrome.storage.sync`), not a custom backend.
 - If your window limit is set very low (e.g. 1) and a pinned group needs a
   brand-new window to restore into at browser startup, that restore can
   itself trip the limit.
+- **Pinning is still per-group**, not per-tab: an ungrouped tab isn't
+  individually pinnable/synced. Use the "Move…" → "+ New group" action on it
+  first, then pin that group.

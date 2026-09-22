@@ -60,6 +60,17 @@ main { padding-bottom: 20px; }
   overflow: hidden;
 }
 
+.group-card.neutral { border-left-color: var(--border); }
+
+.ungrouped-label {
+  font-weight: 600;
+  color: var(--muted);
+  padding: 2px 4px;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
 .group-header {
   display: flex;
   align-items: center;

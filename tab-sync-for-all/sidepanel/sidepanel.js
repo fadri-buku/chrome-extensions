@@ -63,6 +63,12 @@ function openGroupIds() {
   return new Set(state.groups.map((g) => g.id));
 }
 
+function ungroupedTabsForWindow(windowId) {
+  return (state.windows.find((w) => w.id === windowId)?.tabs || [])
+    .filter((t) => t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE)
+    .sort((a, b) => a.index - b.index);
+}
+
 function displayTitle(tab) {
   return state.customTitles[tab.url] || tab.title || tab.url;
 }
@@ -92,19 +98,21 @@ function render() {
   }
 
   let windowIndex = 0;
-  let anyGroups = false;
+  let anyContent = false;
   for (const w of state.windows) {
     windowIndex += 1;
     const groups = byWindow.get(w.id) || [];
-    if (groups.length === 0) continue;
-    anyGroups = true;
+    const ungrouped = ungroupedTabsForWindow(w.id);
+    if (groups.length === 0 && ungrouped.length === 0) continue;
+    anyContent = true;
     const block = el("div", { class: "window-block" }, [
       el("p", { class: "window-label" }, `Window ${windowIndex}`),
       ...groups.map((g) => renderGroupCard(g)),
+      ungrouped.length ? renderUngroupedCard(w.id, ungrouped) : null,
     ]);
     openGroupsEl.appendChild(block);
   }
-  emptyStateEl.hidden = anyGroups;
+  emptyStateEl.hidden = anyContent;
 
   const open = openGroupIds();
   const closed = state.pinnedDefs.filter((p) => {
@@ -197,8 +205,21 @@ function renderGroupCard(group) {
   return card;
 }
 
+function renderUngroupedCard(windowId, tabs) {
+  const header = el("div", { class: "group-header" }, [
+    el("span", { class: "group-title ungrouped-label" }, "Ungrouped tabs"),
+  ]);
+  const list = el(
+    "ul",
+    { class: "tab-list" },
+    tabs.map((t) => renderTabRow(t, null))
+  );
+  const card = el("div", { class: "group-card neutral" }, [header, list]);
+  return card;
+}
+
 function renderTabRow(tab, ownerGroup) {
-  const otherGroups = state.groups.filter((g) => g.id !== ownerGroup.id);
+  const otherGroups = ownerGroup ? state.groups.filter((g) => g.id !== ownerGroup.id) : state.groups;
   const title = displayTitle(tab);
   const isCustom = !!state.customTitles[tab.url];
 
@@ -217,25 +238,24 @@ function renderTabRow(tab, ownerGroup) {
       ? el("img", { class: "tab-favicon", src: tab.favIconUrl, alt: "" })
       : el("span", { class: "tab-favicon" }),
     titleSpan,
-    otherGroups.length
-      ? el(
-          "select",
-          {
-            class: "move-select",
-            title: "Move to another group",
-            onchange: (e) => {
-              if (e.target.value) moveTabToGroup(tab.id, Number(e.target.value));
-              e.target.value = "";
-            },
-          },
-          [
-            el("option", { value: "" }, "Move…"),
-            ...otherGroups.map((g) =>
-              el("option", { value: String(g.id) }, g.title || "(unnamed)")
-            ),
-          ]
-        )
-      : null,
+    el(
+      "select",
+      {
+        class: "move-select",
+        title: "Move to a group",
+        onchange: (e) => {
+          const value = e.target.value;
+          if (value === "new") moveTabToNewGroup(tab.id);
+          else if (value) moveTabToGroup(tab.id, Number(value));
+          e.target.value = "";
+        },
+      },
+      [
+        el("option", { value: "" }, "Move…"),
+        el("option", { value: "new" }, "+ New group"),
+        ...otherGroups.map((g) => el("option", { value: String(g.id) }, g.title || "(unnamed)")),
+      ]
+    ),
   ]);
   return row;
 }
@@ -337,6 +357,11 @@ async function moveTabToGroup(tabId, targetGroupId) {
     await chrome.tabs.move(tabId, { windowId: targetGroup.windowId, index: -1 });
   }
   await chrome.tabs.group({ tabIds: [tabId], groupId: targetGroupId });
+  loadState();
+}
+
+async function moveTabToNewGroup(tabId) {
+  await chrome.tabs.group({ tabIds: [tabId] });
   loadState();
 }
 
