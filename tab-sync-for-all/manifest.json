@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Sync for All",
+  "version": "1.0.0",
+  "description": "Manage every tab across every open window from one panel, give any tab a custom title, pin tabs/groups (mirrored as real bookmarks) so they survive a browser restart and sync across your devices, force-pin the ones you don't want closed by accident, and cap how many windows you can have open at once.",
+  "permissions": ["tabGroups", "tabs", "windows", "storage", "sidePanel", "notifications", "bookmarks"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "action": {
+    "default_title": "Tab Sync for All",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/title-override.js", "content/force-pin-guard.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

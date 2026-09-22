@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Tab Sync for All</title>
+<link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+<header>
+  <h1>Tab Sync for All</h1>
+  <p id="status" class="status"></p>
+</header>
+
+<main>
+  <section id="open-groups" aria-label="Open tabs"></section>
+
+  <section id="closed-pinned-section" hidden>
+    <h2>Pinned, not open</h2>
+    <div id="closed-pinned"></div>
+    <p class="bookmark-note">
+      Every pinned tab/group is also mirrored as a bookmark under
+      "Tab Sync for All" in your Bookmarks — synced natively by Chrome,
+      independent of this panel.
+    </p>
+  </section>
+
+  <p id="empty-state" class="empty-state" hidden>
+    No tabs open yet.
+  </p>
+
+  <section id="window-limit-section" aria-label="Window limit">
+    <h2>Window limit</h2>
+    <div class="window-limit-card">
+      <label for="window-limit-input">Max Chrome windows allowed</label>
+      <input id="window-limit-input" type="number" min="1" step="1" />
+      <p id="window-limit-count" class="window-limit-count"></p>
+      <p class="window-limit-note">
+        Opening one more than this folds its tabs into an existing window
+        instead of leaving it open. Incognito windows aren't counted.
+      </p>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="sidepanel.js"></script>
+</body>
+</html>
