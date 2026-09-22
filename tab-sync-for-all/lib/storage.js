@@ -54,6 +54,7 @@ export async function savePinnedItem(item) {
   };
   if (item.bookmarkFolderId) record.bookmarkFolderId = item.bookmarkFolderId;
   if (item.bookmarkId) record.bookmarkId = item.bookmarkId;
+  if (item.kind === "tab") record.groupHint = item.groupHint || null;
   try {
     await chrome.storage.sync.set({ [key]: record });
     await chrome.storage.local.remove(key);

@@ -44,6 +44,7 @@ export async function restorePinnedItem(pinned, windowId) {
     if (!t || !REOPENABLE_URL.test(t.url)) return null;
     try {
       const tab = await chrome.tabs.create({ url: t.url, active: false, windowId });
+      await reattachToGroupHint(tab.id, pinned.groupHint);
       await store.setLiveMapEntry(pinned.id, { kind: "tab", id: tab.id });
       return { kind: "tab", id: tab.id };
     } catch (err) {
@@ -70,6 +71,29 @@ export async function restorePinnedItem(pinned, windowId) {
   });
   await store.setLiveMapEntry(pinned.id, { kind: "group", id: chromeGroupId });
   return { kind: "group", id: chromeGroupId };
+}
+
+// If a solo pinned tab was captured while it belonged to a tab group,
+// `groupHint` ({title, color}) records that group's identity so a reopened
+// copy can be slotted back in — matching the same title+color heuristic
+// used to adopt a group on browser startup. chrome.tabs.group moves the tab
+// into the target group's window automatically, so no manual window move
+// is needed here.
+async function reattachToGroupHint(tabId, groupHint) {
+  if (!groupHint || !groupHint.title) return;
+  let groups;
+  try {
+    groups = await chrome.tabGroups.query({});
+  } catch (err) {
+    return;
+  }
+  const match = groups.find((g) => g.title === groupHint.title && g.color === groupHint.color);
+  if (!match) return;
+  try {
+    await chrome.tabs.group({ tabIds: [tabId], groupId: match.id });
+  } catch (err) {
+    // The tab may already be mid-close/mid-move — not worth failing over.
+  }
 }
 
 function notifyForcedRestore(name) {
@@ -120,7 +144,21 @@ async function refreshLiveSnapshot(existing, ref) {
       tabs: [{ url: tab.url, title: tab.title }],
       forced: false,
       bookmarkId: existing.bookmarkId,
+      groupHint: await currentGroupHint(tab),
     });
+  }
+}
+
+// Captures {title, color} of whatever tab group a solo-pinned tab currently
+// belongs to (or null if it's ungrouped), so a later restore can try to
+// slot the reopened tab back into the same group.
+async function currentGroupHint(tab) {
+  if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return null;
+  try {
+    const group = await chrome.tabGroups.get(tab.groupId);
+    return { title: group.title, color: group.color };
+  } catch (err) {
+    return null;
   }
 }
 

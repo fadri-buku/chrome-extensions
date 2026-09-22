@@ -126,6 +126,8 @@ select.color-select {
 .tab-row:hover { background: var(--border); }
 
 .tab-favicon { width: 14px; height: 14px; flex: none; border-radius: 3px; }
+.tab-favicon.clickable { cursor: pointer; }
+.tab-favicon.clickable:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .tab-title {
   flex: 1;

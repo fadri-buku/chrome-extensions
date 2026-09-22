@@ -291,8 +291,18 @@ function renderTabRow(tab, ownerGroup) {
     pinBtn,
     lockBtn,
     tab.favIconUrl
-      ? el("img", { class: "tab-favicon", src: tab.favIconUrl, alt: "" })
-      : el("span", { class: "tab-favicon" }),
+      ? el("img", {
+          class: "tab-favicon clickable",
+          src: tab.favIconUrl,
+          alt: "",
+          title: "Switch to this tab",
+          onclick: () => openTab(tab),
+        })
+      : el("span", {
+          class: "tab-favicon clickable",
+          title: "Switch to this tab",
+          onclick: () => openTab(tab),
+        }),
     titleSpan,
     el(
       "select",
@@ -411,6 +421,12 @@ async function togglePin(group, existingPinnedId, tabs) {
   loadState();
 }
 
+function groupHintForTab(tab) {
+  if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return null;
+  const group = state.groups.find((g) => g.id === tab.groupId);
+  return group ? { title: group.title, color: group.color } : null;
+}
+
 async function togglePinTab(tab, existingPinnedId) {
   if (existingPinnedId) {
     await store.deletePinnedItem(existingPinnedId);
@@ -423,10 +439,16 @@ async function togglePinTab(tab, existingPinnedId) {
       title: tab.title,
       tabs: [{ url: tab.url, title: tab.title }],
       forced: false,
+      groupHint: groupHintForTab(tab),
     });
     await store.setLiveMapEntry(id, { kind: "tab", id: tab.id });
   }
   loadState();
+}
+
+async function openTab(tab) {
+  await chrome.windows.update(tab.windowId, { focused: true });
+  await chrome.tabs.update(tab.id, { active: true });
 }
 
 async function toggleForced(pinnedId) {

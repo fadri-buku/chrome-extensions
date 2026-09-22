@@ -17,6 +17,9 @@ no external dependencies.
   nothing is left out of view. Refreshed live as tabs/groups change.
 - Per group: rename, recolor, collapse/expand, jump to it (focuses its
   window and the first tab), or close all its tabs — all from the panel.
+- **Click a tab's favicon to switch to it** — focuses that tab's window and
+  activates the tab, so the panel doubles as a cross-window tab switcher,
+  not just a viewer.
 - **Move any tab into a group, across windows** — every tab row (grouped or
   not) has a "Move…" dropdown listing every open group anywhere, plus a
   "+ New group" option to pop it into a fresh group on the spot.
@@ -35,6 +38,12 @@ no external dependencies.
     "continue where you left off" already restored the same group (matched
     by title + color), the extension adopts it instead of opening a
     duplicate; for solo tabs, it matches by URL.
+  - **A solo-pinned tab that belonged to a group is restored back into
+    that group**, not left standalone: while live, its group's title+color
+    is captured alongside it, and restoring tries to find a currently-open
+    group with the same title+color and slot the reopened tab into it
+    (falling back to a plain ungrouped tab if no matching group exists —
+    see [Known limitations](#known-limitations)).
   - Close just that tab/group mid-session (not the whole browser) and it's
     listed under "Pinned, not open" with a one-click **Restore**.
   - Unpinning (★ again) stops tracking/syncing it but leaves it open.
@@ -146,6 +155,25 @@ on extension reload) reads every pinned item and, for each one, first
 checks whether a live counterpart already exists — a group matched by
 title+color, a solo tab matched by URL — (covering the case where Chrome's
 own session restore beat the extension to it); otherwise it reopens it.
+`restorePinnedItem` (`lib/tabgroups.js`) does the actual reopening for every
+restore path (startup, the panel's manual "Restore", and a force-pinned
+group healed after being fully closed): for a solo tab, after creating it,
+it also tries to reattach it to a live group matching the tab's stored
+`groupHint` (see below).
+
+### Restoring a solo-pinned tab into its group (`groupHint`)
+
+A solo pin only stores that one tab's own URL/title — it was never a group
+snapshot, so there's no "other tabs" list to restore alongside it. To still
+land it back in the right group, `lib/tabgroups.js`'s live-sync pass also
+records `{title, color}` of whatever group the tab currently belongs to
+(`null` if ungrouped) onto the stored record as `groupHint`, every time it
+re-snapshots the tab. On restore, `reattachToGroupHint` looks for a
+currently-open group with that same title+color and calls
+`chrome.tabs.group` to slot the newly (re)created tab into it —
+`chrome.tabs.group` moves the tab into that group's window automatically,
+so no manual window juggling is needed. If no matching group is open, the
+tab simply comes back ungrouped.
 
 ### Custom titles (`content/title-override.js`)
 
@@ -221,6 +249,12 @@ Chrome's bookmark sync), not a custom backend.
   vendors (e.g. Chrome ↔ Edge) since each has its own sync backend.
 - Restored/reopened tabs come back fresh (by URL), not restored from their
   exact prior in-page state (scroll position, form input, JS state, etc.).
+- A solo-pinned tab's group reattachment (`groupHint`) matches by the
+  group's **title+color together**, same heuristic as full-group restore:
+  if the original group isn't open at restore time (or you have two
+  unrelated groups sharing the same blank title and color), it just comes
+  back as a plain ungrouped tab rather than guessing wrong or recreating a
+  group it never had a full snapshot of.
 - The window limit is enforced **going forward only**: lowering it while
   more windows than the new limit are already open doesn't retroactively
   close anything — it only blocks the *next* window you open. Incognito
