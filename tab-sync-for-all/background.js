@@ -1,8 +1,15 @@
 import * as store from "./lib/storage.js";
 import * as tg from "./lib/tabgroups.js";
+import * as windowLimit from "./lib/windowLimit.js";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+});
+
+// Only normal, non-incognito windows count toward the configured cap.
+chrome.windows.onCreated.addListener((win) => {
+  if (win.type !== "normal" || win.incognito) return;
+  windowLimit.enforceOnNewWindow(win);
 });
 
 // Keep pinned-and-currently-open groups' stored snapshot up to date even

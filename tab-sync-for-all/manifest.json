@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Tab Group Sync",
+  "name": "Tab Sync for All",
   "version": "1.0.0",
-  "description": "Manage tab groups across every open window from one panel, give any tab a custom title, and pin groups so they survive a browser restart and sync across your devices.",
-  "permissions": ["tabGroups", "tabs", "storage", "sidePanel"],
+  "description": "Manage tab groups across every open window from one panel, give any tab a custom title, pin groups so they survive a browser restart and sync across your devices, and cap how many windows you can have open at once.",
+  "permissions": ["tabGroups", "tabs", "windows", "storage", "sidePanel", "notifications"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -12,7 +12,7 @@
     "default_path": "sidepanel/sidepanel.html"
   },
   "action": {
-    "default_title": "Tab Group Sync",
+    "default_title": "Tab Sync for All",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

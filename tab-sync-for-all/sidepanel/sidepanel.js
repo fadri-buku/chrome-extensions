@@ -1,4 +1,5 @@
 import * as store from "../lib/storage.js";
+import * as windowLimit from "../lib/windowLimit.js";
 
 const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
 const COLOR_HEX = {
@@ -18,8 +19,10 @@ const openGroupsEl = document.getElementById("open-groups");
 const closedSectionEl = document.getElementById("closed-pinned-section");
 const closedListEl = document.getElementById("closed-pinned");
 const emptyStateEl = document.getElementById("empty-state");
+const windowLimitInputEl = document.getElementById("window-limit-input");
+const windowLimitCountEl = document.getElementById("window-limit-count");
 
-let state = { windows: [], groups: [], pinnedDefs: [], liveMap: {}, customTitles: {} };
+let state = { windows: [], groups: [], pinnedDefs: [], liveMap: {}, customTitles: {}, windowLimit: windowLimit.DEFAULT_LIMIT };
 let renderTimer = null;
 
 function scheduleLoad() {
@@ -29,14 +32,15 @@ function scheduleLoad() {
 
 async function loadState() {
   renderTimer = null;
-  const [windows, groups, pinnedDefs, liveMap, customTitles] = await Promise.all([
+  const [windows, groups, pinnedDefs, liveMap, customTitles, limit] = await Promise.all([
     chrome.windows.getAll({ populate: true }),
     chrome.tabGroups.query({}),
     store.getAllPinnedGroups(),
     store.getLiveMap(),
     store.getCustomTitles(),
+    windowLimit.getLimit(),
   ]);
-  state = { windows, groups, pinnedDefs, liveMap, customTitles };
+  state = { windows, groups, pinnedDefs, liveMap, customTitles, windowLimit: limit };
   render();
 }
 
@@ -109,6 +113,16 @@ function render() {
   });
   closedSectionEl.hidden = closed.length === 0;
   for (const p of closed) closedListEl.appendChild(renderClosedPinnedCard(p));
+
+  renderWindowLimit();
+}
+
+function renderWindowLimit() {
+  if (document.activeElement !== windowLimitInputEl) {
+    windowLimitInputEl.value = state.windowLimit;
+  }
+  const openCount = state.windows.filter((w) => !w.incognito).length;
+  windowLimitCountEl.textContent = `${openCount} window${openCount === 1 ? "" : "s"} open now`;
 }
 
 function renderGroupCard(group) {
@@ -362,6 +376,14 @@ async function forgetPinned(pinnedId) {
 function setStatus(text) {
   statusEl.textContent = text;
 }
+
+windowLimitInputEl.addEventListener("change", async () => {
+  const clamped = await windowLimit.setLimit(windowLimitInputEl.value);
+  windowLimitInputEl.value = clamped;
+  setStatus("Window limit saved.");
+  setTimeout(() => setStatus(""), 1500);
+  loadState();
+});
 
 chrome.tabGroups.onCreated.addListener(scheduleLoad);
 chrome.tabGroups.onUpdated.addListener(scheduleLoad);

@@ -178,3 +178,34 @@ select.color-select {
   line-height: 1.5;
   text-align: center;
 }
+
+#window-limit-section { margin-top: 6px; }
+
+.window-limit-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  margin: 0 14px 14px;
+  padding: 10px 12px;
+}
+.window-limit-card label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.window-limit-card input[type="number"] {
+  width: 100%;
+  font-size: 14px;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--fg);
+}
+.window-limit-card input[type="number"]:focus {
+  outline: 2px solid var(--accent);
+  border-color: var(--accent);
+}
+.window-limit-count { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+.window-limit-note { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }

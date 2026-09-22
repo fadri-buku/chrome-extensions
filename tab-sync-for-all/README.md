@@ -1,10 +1,11 @@
-# Tab Group Sync (Chrome Extension)
+# Tab Sync for All (Chrome Extension)
 
-A side-panel tab group manager: see and control every tab group across
-**all your open windows** from one place, give any tab a custom title, and
-**pin** groups so they survive closing/reopening the browser and follow you
-to other devices signed into the same Chrome profile. Manifest V3, no build
-step, no external dependencies.
+A side-panel tab manager: see and control every tab group across **all your
+open windows** from one place, give any tab a custom title, **pin** groups
+so they survive closing/reopening the browser and follow you to other
+devices signed into the same Chrome profile, and **cap how many windows**
+you're allowed to have open at once. Manifest V3, no build step, no
+external dependencies.
 
 ## Features
 
@@ -33,12 +34,17 @@ step, no external dependencies.
 - **Synced across devices** via `chrome.storage.sync` — pinned groups and
   custom titles follow you automatically to any device signed into the same
   Chrome profile, no extra sign-in step.
+- **Window limit** — cap how many normal Chrome windows can be open at once
+  (default **2**, configurable in the panel's "Window limit" section, and
+  itself synced via `chrome.storage.sync`). Open one over the limit and its
+  tabs are folded into an existing window (nothing is discarded) and a
+  `chrome.notifications` alert explains what happened.
 
 ## Install (load unpacked)
 
 1. Open `chrome://extensions` in Chrome (or another Chromium browser).
 2. Turn on **Developer mode** (top-right toggle).
-3. Click **Load unpacked** and select this `tab-group-sync` folder.
+3. Click **Load unpacked** and select this `tab-sync-for-all` folder.
 4. Pin the extension, then click its toolbar icon — it opens the side
    panel (not a popup), which you can leave open alongside your tabs.
 
@@ -47,16 +53,17 @@ No `npm install`, no bundler — plain HTML/CSS/JS loaded directly by Chrome.
 ## Project structure
 
 ```
-tab-group-sync/
+tab-sync-for-all/
 ├── manifest.json             # MV3 config: permissions, side panel, content script
-├── background.js             # Service worker: startup restore + keeps pinned groups live-synced
+├── background.js             # Service worker: startup restore, live-syncs pinned groups, enforces window limit
 ├── lib/
-│   ├── storage.js            # sync/local/session storage layer (with quota fallback)
-│   └── tabgroups.js          # shared helpers: snapshot/restore/refresh a live tab group
+│   ├── storage.js            # sync/local/session storage layer for groups/titles (with quota fallback)
+│   ├── tabgroups.js          # shared helpers: snapshot/restore/refresh a live tab group
+│   └── windowLimit.js        # window-count cap: settings + enforcement, shared by background & panel
 ├── content/
 │   └── title-override.js     # applies a custom title on matching pages, re-applies on SPA changes
 ├── sidepanel/
-│   ├── sidepanel.html/.css/.js  # the unified manager UI
+│   ├── sidepanel.html/.css/.js  # the unified manager UI (groups, pinning, window limit)
 └── icons/                    # toolbar/extension icons (16/48/128 px)
 ```
 
@@ -113,10 +120,23 @@ reapply it if the page's own script changes it back. It also listens for
 `chrome.storage.onChanged` so editing a title from the panel updates an
 already-open tab immediately.
 
+### Window limit (`lib/windowLimit.js`)
+
+`chrome.windows.onCreated` fires for every new normal browser window.
+`background.js` hands it to `windowLimit.enforceOnNewWindow`, which counts
+current normal (non-incognito) windows; if that exceeds the configured
+limit, it moves the new window's tabs into an existing window
+(`chrome.tabs.move`, rather than just closing the window outright, so
+dragging a tab into its own window doesn't lose that tab), closes the
+now-empty extra window, and fires a `chrome.notifications` alert. The limit
+itself is one small number in `chrome.storage.sync`, read fresh on every new
+window and editable from the panel's "Window limit" section.
+
 ## Permissions
 
-- `tabGroups`, `tabs`, `storage`, `sidePanel` — read/modify groups and tabs,
-  and persist state.
+- `tabGroups`, `tabs`, `windows`, `storage`, `sidePanel`, `notifications` —
+  read/modify groups, tabs and windows; persist state; alert on a blocked
+  window.
 - A content script matching `<all_urls>` — needed only to apply your custom
   tab titles; it does not read page content otherwise.
 
@@ -133,3 +153,10 @@ account sync infrastructure (`chrome.storage.sync`), not a custom backend.
   vendors (e.g. Chrome ↔ Edge) since each has its own sync backend.
 - Restored tabs are reopened fresh (by URL), not restored from their exact
   prior in-page state (scroll position, form input, etc.).
+- The window limit is enforced **going forward only**: lowering it while
+  more windows than the new limit are already open doesn't retroactively
+  close anything — it only blocks the *next* window you open. Incognito
+  windows aren't counted or blocked.
+- If your window limit is set very low (e.g. 1) and a pinned group needs a
+  brand-new window to restore into at browser startup, that restore can
+  itself trip the limit.
