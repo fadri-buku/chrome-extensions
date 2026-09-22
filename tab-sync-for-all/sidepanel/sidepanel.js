@@ -322,6 +322,15 @@ function renderTabRow(tab, ownerGroup) {
         ...otherGroups.map((g) => el("option", { value: String(g.id) }, g.title || "(unnamed)")),
       ]
     ),
+    el(
+      "button",
+      {
+        class: "text-btn danger",
+        title: "Close every other tab in this window (pinned/force-pinned tabs and groups are left alone)",
+        onclick: () => closeOtherTabsInWindow(tab),
+      },
+      "Close others"
+    ),
   ]);
   return row;
 }
@@ -398,6 +407,28 @@ async function focusGroup(group) {
 async function closeGroup(groupId) {
   const tabs = tabsForGroup(groupId);
   await chrome.tabs.remove(tabs.map((t) => t.id));
+  loadState();
+}
+
+// A tab is "protected" from a bulk close if it's solo-pinned, or it's a
+// member of a currently-pinned group — closing others shouldn't undo your
+// own pins (and for a force-pinned one, would just trigger the healer to
+// reopen it right back, which is pointless churn either way).
+function isTabProtected(tab) {
+  const isGroupPinned =
+    tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE &&
+    Object.values(state.liveMap).some((ref) => ref?.kind === "group" && ref.id === tab.groupId);
+  const isSoloPinned = Object.values(state.liveMap).some((ref) => ref?.kind === "tab" && ref.id === tab.id);
+  return isGroupPinned || isSoloPinned;
+}
+
+async function closeOtherTabsInWindow(tab) {
+  const windowTabs = state.windows.find((w) => w.id === tab.windowId)?.tabs || [];
+  const idsToClose = windowTabs
+    .filter((t) => t.id !== tab.id && !isTabProtected(t))
+    .map((t) => t.id);
+  if (idsToClose.length === 0) return;
+  await chrome.tabs.remove(idsToClose);
   loadState();
 }
 

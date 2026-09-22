@@ -20,6 +20,10 @@ no external dependencies.
 - **Click a tab's favicon to switch to it** — focuses that tab's window and
   activates the tab, so the panel doubles as a cross-window tab switcher,
   not just a viewer.
+- **"Close others"** on every tab row closes every *other* tab in that
+  tab's window (same as Chrome's native "close other tabs"), but skips any
+  tab that's solo-pinned or belongs to a pinned group — closing others
+  shouldn't undo your own pins.
 - **Move any tab into a group, across windows** — every tab row (grouped or
   not) has a "Move…" dropdown listing every open group anywhere, plus a
   "+ New group" option to pop it into a fresh group on the spot.

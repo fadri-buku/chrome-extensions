@@ -160,6 +160,19 @@ select.color-select {
   border-radius: 4px;
 }
 
+.text-btn {
+  flex: none;
+  font-size: 10px;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  cursor: pointer;
+}
+.text-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+
 .closed-pinned-card {
   display: flex;
   align-items: center;
