@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "CSV to JSON",
+  "version": "1.0.0",
+  "description": "Paste or upload a CSV and get formatted JSON, right from the toolbar popup. No permissions, no network calls.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "CSV to JSON"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CSV to JSON</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>CSV to JSON</h1>
+    <span id="status" class="status"></span>
+  </header>
+
+  <div class="options">
+    <label class="field">
+      <span>Delimiter</span>
+      <select id="delimiter">
+        <option value="auto" selected>Auto</option>
+        <option value=",">Comma</option>
+        <option value=";">Semicolon</option>
+        <option value="\t">Tab</option>
+        <option value="|">Pipe</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Indent</span>
+      <select id="indent">
+        <option value="2" selected>2 sp</option>
+        <option value="4">4 sp</option>
+        <option value="0">Min</option>
+      </select>
+    </label>
+    <label class="toggle" title="Use the first CSV row as object keys">
+      <input type="checkbox" id="headerRow" checked /> Header row
+    </label>
+    <label class="toggle" title="Convert numbers and true/false to native JSON types">
+      <input type="checkbox" id="inferTypes" checked /> Infer types
+    </label>
+  </div>
+
+  <section class="pane">
+    <div class="pane-head">
+      <span>CSV input</span>
+      <div class="actions">
+        <button id="uploadBtn" title="Load a .csv file">Upload</button>
+        <button id="exampleBtn" title="Load example data">Example</button>
+      </div>
+    </div>
+    <div class="dropzone" id="dropzone">
+      <textarea id="csvInput" spellcheck="false" placeholder="Paste CSV here, or drop a .csv file…"></textarea>
+    </div>
+    <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
+  </section>
+
+  <section class="pane">
+    <div class="pane-head">
+      <span>JSON output</span>
+      <div class="actions">
+        <button id="copyBtn" title="Copy result to clipboard">Copy</button>
+        <button id="clearBtn" title="Clear everything">Clear</button>
+      </div>
+    </div>
+    <pre id="output"></pre>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

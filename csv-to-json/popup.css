@@ -1,0 +1,202 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a2e;
+  --border: #d6d9e0;
+  --field-bg: #f7f8fa;
+  --accent-csv: #c8781f;
+  --accent-json: #106b5d;
+  --accent-fg: #ffffff;
+  --error: #c53030;
+  --ok: #2f855a;
+  --muted: #6b7280;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16161f;
+    --fg: #e6e6f0;
+    --border: #33333f;
+    --field-bg: #1e1e29;
+    --accent-csv: #e2983c;
+    --accent-json: #35b09b;
+    --accent-fg: #0b1120;
+    --error: #fc8181;
+    --ok: #68d391;
+    --muted: #9ca3af;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 460px;
+  padding: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+h1 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.status {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--field-bg);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.field select {
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle input {
+  accent-color: var(--accent-json);
+}
+
+.pane {
+  margin-bottom: 8px;
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.pane-head .actions {
+  display: flex;
+  gap: 4px;
+}
+
+.pane-head button {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--field-bg);
+  color: var(--fg);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.pane-head button:hover {
+  border-color: var(--accent-json);
+}
+
+.pane-head button:active {
+  transform: translateY(1px);
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+}
+
+.dropzone.drag-over::after {
+  content: "Drop to load .csv";
+  position: absolute;
+  inset: 2px;
+  border: 2px dashed var(--accent-csv);
+  border-radius: 6px;
+  background: var(--field-bg);
+  color: var(--accent-csv);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+textarea,
+#output {
+  width: 100%;
+  padding: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg);
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+textarea {
+  height: 110px;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: 2px solid var(--accent-json);
+  outline-offset: -1px;
+}
+
+#output {
+  height: 170px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre;
+}
