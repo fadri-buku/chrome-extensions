@@ -4,24 +4,12 @@ const $ = (id) => document.getElementById(id);
 
 const searchInput = $("search-input");
 const searchResultsEl = $("search-results");
-const categoriesView = $("categories-view");
+const shelfView = $("shelf-view");
 const categoriesListEl = $("categories-list");
 const categoriesEmptyEl = $("categories-empty");
 const addCategoryForm = $("add-category-form");
 const newCategoryInput = $("new-category-input");
-const categoryView = $("category-view");
-const categoryTitleEl = $("category-title");
-const backBtn = $("back-btn");
-const renameCategoryBtn = $("rename-category-btn");
-const deleteCategoryBtn = $("delete-category-btn");
-const itemForm = $("item-form");
-const itemTitleInput = $("item-title-input");
-const itemUrlInput = $("item-url-input");
-const useCurrentTabBtn = $("use-current-tab-btn");
-const cancelEditBtn = $("cancel-edit-btn");
-const saveItemBtn = $("save-item-btn");
-const itemsListEl = $("items-list");
-const itemsEmptyEl = $("items-empty");
+const expandAllBtn = $("expand-all-btn");
 const qrOverlay = $("qr-overlay");
 const qrCanvas = $("qr-canvas");
 const qrTitleEl = $("qr-title");
@@ -29,10 +17,16 @@ const qrUrlEl = $("qr-url");
 const qrCloseBtn = $("qr-close-btn");
 const qrDownloadBtn = $("qr-download-btn");
 
-let currentCategory = null; // { id, title }
-let editingItemId = null;
+// Everything lives on one screen: categories expand in place to show their
+// bookmarks nested underneath, instead of drilling into a separate view.
+let categoriesCache = [];
+let itemsByCategory = new Map(); // categoryId -> items array, only for expanded categories
+let expandedIds = new Set();
 let pendingDelete = null; // { type: 'category' | 'item', id }
 let renamingCategoryId = null;
+let addFormOpenFor = null; // categoryId currently showing its inline add-bookmark form
+let editingItem = null; // { id, categoryId }
+let movingItem = null; // itemId currently showing its "move to" picker
 let currentTab = null; // { title, url } of the tab the popup was opened from
 
 function iconButton(label, ariaLabel, onClick, extraClass) {
@@ -57,21 +51,58 @@ async function getCurrentTab() {
   return null;
 }
 
-// --- Categories view -------------------------------------------------
+// --- Data loading ------------------------------------------------------
 
-async function renderCategories() {
-  const categories = await store.listCategories();
-  categoriesListEl.innerHTML = "";
-  categoriesEmptyEl.classList.toggle("hidden", categories.length > 0);
-
-  for (const cat of categories) {
-    categoriesListEl.appendChild(buildCategoryRow(cat));
+async function loadAndRender() {
+  categoriesCache = await store.listCategories();
+  const validIds = new Set(categoriesCache.map((c) => c.id));
+  for (const id of [...expandedIds]) {
+    if (!validIds.has(id)) {
+      expandedIds.delete(id);
+      itemsByCategory.delete(id);
+    }
   }
+  await Promise.all(
+    [...expandedIds].map(async (id) => {
+      itemsByCategory.set(id, await store.listItems(id));
+    })
+  );
+  render();
 }
 
-function buildCategoryRow(cat) {
-  const row = document.createElement("div");
-  row.className = "row";
+function render() {
+  categoriesListEl.innerHTML = "";
+  categoriesEmptyEl.classList.toggle("hidden", categoriesCache.length > 0);
+  for (const cat of categoriesCache) {
+    categoriesListEl.appendChild(buildCategorySection(cat));
+  }
+  const allExpanded = categoriesCache.length > 0 && expandedIds.size === categoriesCache.length;
+  expandAllBtn.textContent = allExpanded ? "Collapse all" : "Expand all";
+}
+
+// --- Category sections ---------------------------------------------------
+
+function buildCategorySection(cat) {
+  const section = document.createElement("div");
+  section.className = "category-section";
+
+  const header = document.createElement("div");
+  header.className = "category-header2";
+  header.addEventListener("dragover", (e) => {
+    if (!e.dataTransfer.types.includes("text/bookmark-item-id")) return;
+    e.preventDefault();
+    header.classList.add("drag-over");
+  });
+  header.addEventListener("dragleave", () => header.classList.remove("drag-over"));
+  header.addEventListener("drop", async (e) => {
+    header.classList.remove("drag-over");
+    const itemId = e.dataTransfer.getData("text/bookmark-item-id");
+    if (!itemId) return;
+    e.preventDefault();
+    await store.moveItem(itemId, cat.id);
+    expandedIds.add(cat.id);
+    await loadAndRender();
+  });
 
   if (renamingCategoryId === cat.id) {
     const wrap = document.createElement("div");
@@ -83,72 +114,114 @@ function buildCategoryRow(cat) {
       const title = input.value.trim();
       if (title) await store.renameCategory(cat.id, title);
       renamingCategoryId = null;
-      await renderCategories();
+      await loadAndRender();
     });
     const cancel = iconButton("✕", "Cancel rename", () => {
       renamingCategoryId = null;
-      renderCategories();
+      render();
     });
     wrap.append(input, save, cancel);
-    row.appendChild(wrap);
+    header.appendChild(wrap);
     requestAnimationFrame(() => input.focus());
-    return row;
-  }
-
-  const main = document.createElement("button");
-  main.type = "button";
-  main.className = "row-main";
-  const titleSpan = document.createElement("span");
-  titleSpan.className = "row-title";
-  titleSpan.textContent = cat.title;
-  const countSpan = document.createElement("span");
-  countSpan.className = "row-count";
-  countSpan.textContent = String(cat.count);
-  main.append(titleSpan, countSpan);
-  main.addEventListener("click", () => openCategory(cat.id, cat.title));
-  row.appendChild(main);
-
-  const actions = document.createElement("div");
-  actions.className = "row-actions";
-
-  if (pendingDelete && pendingDelete.type === "category" && pendingDelete.id === cat.id) {
-    const yes = document.createElement("button");
-    yes.type = "button";
-    yes.className = "confirm-yes";
-    yes.textContent = "Delete";
-    yes.addEventListener("click", async () => {
-      await store.deleteCategory(cat.id);
-      pendingDelete = null;
-      await renderCategories();
-    });
-    const no = document.createElement("button");
-    no.type = "button";
-    no.className = "confirm-no";
-    no.textContent = "Cancel";
-    no.addEventListener("click", () => {
-      pendingDelete = null;
-      renderCategories();
-    });
-    actions.append(yes, no);
   } else {
-    actions.append(
-      iconButton("✎", "Rename category", () => {
-        renamingCategoryId = cat.id;
-        renderCategories();
-      }),
-      iconButton(
-        "🗑",
-        "Delete category",
-        () => {
-          pendingDelete = { type: "category", id: cat.id };
-          renderCategories();
-        },
-        "danger"
-      )
-    );
+    const main = document.createElement("button");
+    main.type = "button";
+    main.className = "row-main";
+    const chevron = document.createElement("span");
+    chevron.className = "chevron";
+    chevron.textContent = expandedIds.has(cat.id) ? "▾" : "▸";
+    const titleSpan = document.createElement("span");
+    titleSpan.className = "row-title";
+    titleSpan.textContent = cat.title;
+    const countSpan = document.createElement("span");
+    countSpan.className = "row-count";
+    countSpan.textContent = String(cat.count);
+    main.append(chevron, titleSpan, countSpan);
+    main.addEventListener("click", () => toggleExpand(cat.id));
+    header.appendChild(main);
+
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
+
+    if (pendingDelete && pendingDelete.type === "category" && pendingDelete.id === cat.id) {
+      const yes = document.createElement("button");
+      yes.type = "button";
+      yes.className = "confirm-yes";
+      yes.textContent = "Delete";
+      yes.addEventListener("click", async () => {
+        await store.deleteCategory(cat.id);
+        pendingDelete = null;
+        await loadAndRender();
+      });
+      const no = document.createElement("button");
+      no.type = "button";
+      no.className = "confirm-no";
+      no.textContent = "Cancel";
+      no.addEventListener("click", () => {
+        pendingDelete = null;
+        render();
+      });
+      actions.append(yes, no);
+    } else {
+      actions.append(
+        iconButton("＋", "Add bookmark to this category", () => {
+          expandedIds.add(cat.id);
+          addFormOpenFor = addFormOpenFor === cat.id ? null : cat.id;
+          loadAndRender();
+        }),
+        iconButton("✎", "Rename category", () => {
+          renamingCategoryId = cat.id;
+          render();
+        }),
+        iconButton(
+          "🗑",
+          "Delete category",
+          () => {
+            pendingDelete = { type: "category", id: cat.id };
+            render();
+          },
+          "danger"
+        )
+      );
+    }
+    header.appendChild(actions);
   }
-  row.appendChild(actions);
-  return row;
+  section.appendChild(header);
+
+  if (expandedIds.has(cat.id)) {
+    const body = document.createElement("div");
+    body.className = "category-body";
+
+    if (addFormOpenFor === cat.id) {
+      body.appendChild(buildAddItemForm(cat.id));
+    }
+
+    const items = itemsByCategory.get(cat.id) || [];
+    if (items.length === 0 && addFormOpenFor !== cat.id) {
+      const empty = document.createElement("p");
+      empty.className = "empty small";
+      empty.textContent = "No bookmarks in this category yet.";
+      body.appendChild(empty);
+    }
+    for (const item of items) {
+      body.appendChild(buildItemRow(item, cat));
+    }
+    section.appendChild(body);
+  }
+
+  return section;
+}
+
+async function toggleExpand(catId) {
+  if (expandedIds.has(catId)) {
+    expandedIds.delete(catId);
+    itemsByCategory.delete(catId);
+    if (addFormOpenFor === catId) addFormOpenFor = null;
+  } else {
+    expandedIds.add(catId);
+    itemsByCategory.set(catId, await store.listItems(catId));
+  }
+  render();
 }
 
 addCategoryForm.addEventListener("submit", async (e) => {
@@ -156,99 +229,124 @@ addCategoryForm.addEventListener("submit", async (e) => {
   const title = newCategoryInput.value.trim();
   if (!title) return;
   newCategoryInput.value = "";
-  await store.createCategory(title);
-  await renderCategories();
+  const created = await store.createCategory(title);
+  expandedIds.add(created.id);
+  await loadAndRender();
 });
 
-// --- Category detail view --------------------------------------------
-
-async function openCategory(id, title) {
-  currentCategory = { id, title };
-  pendingDelete = null;
-  editingItemId = null;
-  categoriesView.classList.add("hidden");
-  categoryView.classList.remove("hidden");
-  categoryTitleEl.textContent = title;
-  resetItemForm();
-  if (currentTab && !itemTitleInput.value && !itemUrlInput.value) {
-    itemTitleInput.value = currentTab.title;
-    itemUrlInput.value = currentTab.url;
-  }
-  await renderItems();
-}
-
-function closeCategory() {
-  currentCategory = null;
-  categoryView.classList.add("hidden");
-  categoriesView.classList.remove("hidden");
-  renderCategories();
-}
-
-backBtn.addEventListener("click", closeCategory);
-
-deleteCategoryBtn.addEventListener("click", async () => {
-  if (!currentCategory) return;
-  if (deleteCategoryBtn.dataset.confirming === "1") {
-    await store.deleteCategory(currentCategory.id);
-    closeCategory();
-    return;
-  }
-  deleteCategoryBtn.dataset.confirming = "1";
-  deleteCategoryBtn.textContent = "Confirm?";
-  setTimeout(() => {
-    deleteCategoryBtn.dataset.confirming = "0";
-    deleteCategoryBtn.textContent = "🗑";
-  }, 2500);
-});
-
-function resetItemForm() {
-  editingItemId = null;
-  itemTitleInput.value = "";
-  itemUrlInput.value = "";
-  saveItemBtn.textContent = "Add bookmark";
-  cancelEditBtn.classList.add("hidden");
-}
-
-cancelEditBtn.addEventListener("click", () => {
-  resetItemForm();
-});
-
-useCurrentTabBtn.addEventListener("click", async () => {
-  const tab = currentTab || (await getCurrentTab());
-  if (tab) {
-    itemTitleInput.value = tab.title;
-    itemUrlInput.value = tab.url;
-  }
-});
-
-itemForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!currentCategory) return;
-  const title = itemTitleInput.value.trim();
-  const url = itemUrlInput.value.trim();
-  if (!url) return;
-  if (editingItemId) {
-    await store.updateItem(editingItemId, { title: title || url, url });
+expandAllBtn.addEventListener("click", async () => {
+  if (categoriesCache.length > 0 && expandedIds.size === categoriesCache.length) {
+    expandedIds.clear();
+    itemsByCategory.clear();
+    addFormOpenFor = null;
   } else {
-    await store.addItem(currentCategory.id, title, url);
+    expandedIds = new Set(categoriesCache.map((c) => c.id));
+    await Promise.all(
+      categoriesCache.map(async (c) => {
+        itemsByCategory.set(c.id, await store.listItems(c.id));
+      })
+    );
   }
-  resetItemForm();
-  await renderItems();
+  render();
 });
 
-async function renderItems() {
-  if (!currentCategory) return;
-  const items = await store.listItems(currentCategory.id);
-  itemsListEl.innerHTML = "";
-  itemsEmptyEl.classList.toggle("hidden", items.length > 0);
-  for (const item of items) {
-    itemsListEl.appendChild(buildItemRow(item));
+// --- Add-bookmark inline form -------------------------------------------
+
+function buildAddItemForm(categoryId) {
+  const form = document.createElement("form");
+  form.className = "add-item-form";
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.placeholder = "Title";
+  const urlInput = document.createElement("input");
+  urlInput.type = "text";
+  urlInput.placeholder = "URL";
+  if (currentTab) {
+    titleInput.value = currentTab.title;
+    urlInput.value = currentTab.url;
   }
+
+  const actionsRow = document.createElement("div");
+  actionsRow.className = "add-item-actions";
+  const useTabBtn = document.createElement("button");
+  useTabBtn.type = "button";
+  useTabBtn.textContent = "Use current tab";
+  useTabBtn.addEventListener("click", async () => {
+    const tab = currentTab || (await getCurrentTab());
+    if (tab) {
+      titleInput.value = tab.title;
+      urlInput.value = tab.url;
+    }
+  });
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", () => {
+    addFormOpenFor = null;
+    render();
+  });
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "submit";
+  saveBtn.className = "primary-btn";
+  saveBtn.textContent = "Add bookmark";
+  actionsRow.append(useTabBtn, cancelBtn, saveBtn);
+
+  form.append(titleInput, urlInput, actionsRow);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const url = urlInput.value.trim();
+    if (!url) return;
+    await store.addItem(categoryId, titleInput.value.trim(), url);
+    addFormOpenFor = null;
+    await loadAndRender();
+  });
+  requestAnimationFrame(() => titleInput.focus());
+  return form;
 }
 
-function buildItemRow(item) {
+// --- Bookmark rows -------------------------------------------------------
+
+function buildItemRow(item, cat) {
   const row = document.createElement("div");
   row.className = "item-row";
+
+  if (editingItem && editingItem.id === item.id) {
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.value = item.title;
+    const urlInput = document.createElement("input");
+    urlInput.type = "text";
+    urlInput.value = item.url;
+    const actions = document.createElement("div");
+    actions.className = "add-item-actions";
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "primary-btn";
+    save.textContent = "Save changes";
+    save.addEventListener("click", async () => {
+      const url = urlInput.value.trim();
+      if (!url) return;
+      await store.updateItem(item.id, { title: titleInput.value.trim() || url, url });
+      editingItem = null;
+      await loadAndRender();
+    });
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", () => {
+      editingItem = null;
+      render();
+    });
+    actions.append(cancel, save);
+    row.append(titleInput, urlInput, actions);
+    return row;
+  }
+
+  row.draggable = true;
+  row.addEventListener("dragstart", (e) => {
+    e.dataTransfer.setData("text/bookmark-item-id", item.id);
+    e.dataTransfer.effectAllowed = "move";
+  });
 
   const main = document.createElement("div");
   main.className = "item-main";
@@ -277,7 +375,7 @@ function buildItemRow(item) {
     yes.addEventListener("click", async () => {
       await store.deleteItem(item.id);
       pendingDelete = null;
-      await renderItems();
+      await loadAndRender();
     });
     const no = document.createElement("button");
     no.type = "button";
@@ -285,26 +383,57 @@ function buildItemRow(item) {
     no.textContent = "Cancel";
     no.addEventListener("click", () => {
       pendingDelete = null;
-      renderItems();
+      render();
     });
     actions.append(yes, no);
+  } else if (movingItem === item.id) {
+    const select = document.createElement("select");
+    const placeholder = document.createElement("option");
+    placeholder.textContent = "Move to…";
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+    for (const other of categoriesCache) {
+      if (other.id === cat.id) continue;
+      const opt = document.createElement("option");
+      opt.value = other.id;
+      opt.textContent = other.title;
+      select.appendChild(opt);
+    }
+    select.addEventListener("change", async () => {
+      const targetId = select.value;
+      if (!targetId) return;
+      await store.moveItem(item.id, targetId);
+      expandedIds.add(targetId);
+      movingItem = null;
+      await loadAndRender();
+    });
+    const cancel = iconButton("✕", "Cancel move", () => {
+      movingItem = null;
+      render();
+    });
+    actions.append(select, cancel);
   } else {
+    actions.append(iconButton("▦", "Show QR code", () => showQr(item.title, item.url)));
+    if (categoriesCache.length > 1) {
+      actions.append(
+        iconButton("⇄", "Move to another category", () => {
+          movingItem = item.id;
+          render();
+        })
+      );
+    }
     actions.append(
-      iconButton("▦", "Show QR code", () => showQr(item.title, item.url)),
       iconButton("✎", "Edit bookmark", () => {
-        editingItemId = item.id;
-        itemTitleInput.value = item.title;
-        itemUrlInput.value = item.url;
-        saveItemBtn.textContent = "Save changes";
-        cancelEditBtn.classList.remove("hidden");
-        itemTitleInput.focus();
+        editingItem = { id: item.id, categoryId: cat.id };
+        render();
       }),
       iconButton(
         "🗑",
         "Delete bookmark",
         () => {
           pendingDelete = { type: "item", id: item.id };
-          renderItems();
+          render();
         },
         "danger"
       )
@@ -314,39 +443,6 @@ function buildItemRow(item) {
   row.appendChild(main);
   return row;
 }
-
-// --- Category rename (header) ------------------------------------------
-// Replaces the header title with an inline input + save/cancel, matching
-// the list-row rename pattern (window.prompt() is unsupported inside a
-// Chrome extension popup, so every edit here has to be inline UI).
-
-function startHeaderRename() {
-  if (!currentCategory) return;
-  const wrap = document.createElement("div");
-  wrap.className = "rename-row";
-  const input = document.createElement("input");
-  input.type = "text";
-  input.value = currentCategory.title;
-  const save = iconButton("✓", "Save name", async () => {
-    const title = input.value.trim();
-    if (title) {
-      await store.renameCategory(currentCategory.id, title);
-      currentCategory.title = title;
-    }
-    restoreHeader();
-  });
-  const cancel = iconButton("✕", "Cancel rename", () => restoreHeader());
-  wrap.append(input, save, cancel);
-  categoryTitleEl.replaceWith(wrap);
-  input.focus();
-
-  function restoreHeader() {
-    wrap.replaceWith(categoryTitleEl);
-    categoryTitleEl.textContent = currentCategory.title;
-  }
-}
-
-renameCategoryBtn.addEventListener("click", startHeaderRename);
 
 // --- Search --------------------------------------------------------------
 
@@ -360,12 +456,10 @@ async function runSearch() {
   const query = searchInput.value.trim();
   if (!query) {
     searchResultsEl.classList.add("hidden");
-    categoriesView.classList.toggle("hidden", !!currentCategory);
-    categoryView.classList.toggle("hidden", !currentCategory);
+    shelfView.classList.remove("hidden");
     return;
   }
-  categoriesView.classList.add("hidden");
-  categoryView.classList.add("hidden");
+  shelfView.classList.add("hidden");
   searchResultsEl.classList.remove("hidden");
 
   const results = await store.searchItems(query);
@@ -410,10 +504,12 @@ function buildSearchRow(result) {
   actions.className = "row-actions";
   actions.append(
     iconButton("▦", "Show QR code", () => showQr(result.title, result.url)),
-    iconButton("→", "Open category", () => {
+    iconButton("→", "Open category", async () => {
       searchInput.value = "";
+      expandedIds.add(result.categoryId);
       searchResultsEl.classList.add("hidden");
-      openCategory(result.categoryId, result.categoryTitle);
+      shelfView.classList.remove("hidden");
+      await loadAndRender();
     })
   );
   main.appendChild(actions);
@@ -468,5 +564,7 @@ qrDownloadBtn.addEventListener("click", () => {
 
 (async function init() {
   currentTab = await getCurrentTab();
-  await renderCategories();
+  const initial = await store.listCategories();
+  expandedIds = new Set(initial.map((c) => c.id));
+  await loadAndRender();
 })();

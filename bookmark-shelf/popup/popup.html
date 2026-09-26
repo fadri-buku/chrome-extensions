@@ -17,35 +17,16 @@
 
       <div id="search-results" class="list hidden"></div>
 
-      <div id="categories-view" class="view">
-        <form id="add-category-form" class="new-category-row">
-          <input id="new-category-input" type="text" placeholder="New category name" autocomplete="off" />
-          <button type="submit">Add</button>
-        </form>
+      <div id="shelf-view" class="view">
+        <div class="shelf-controls">
+          <form id="add-category-form" class="new-category-row">
+            <input id="new-category-input" type="text" placeholder="New category name" autocomplete="off" />
+            <button type="submit">Add</button>
+          </form>
+          <button id="expand-all-btn" type="button" class="text-btn">Collapse all</button>
+        </div>
         <div id="categories-list" class="list"></div>
         <p id="categories-empty" class="empty hidden">No categories yet — add one above.</p>
-      </div>
-
-      <div id="category-view" class="view hidden">
-        <div class="category-header">
-          <button id="back-btn" class="icon-btn" type="button" aria-label="Back to categories">←</button>
-          <h2 id="category-title"></h2>
-          <button id="rename-category-btn" class="icon-btn" type="button" aria-label="Rename category">✎</button>
-          <button id="delete-category-btn" class="icon-btn danger" type="button" aria-label="Delete category">🗑</button>
-        </div>
-
-        <form id="item-form" class="add-item-form">
-          <input id="item-title-input" type="text" placeholder="Title" autocomplete="off" />
-          <input id="item-url-input" type="text" placeholder="URL" autocomplete="off" />
-          <div class="add-item-actions">
-            <button id="use-current-tab-btn" type="button">Use current tab</button>
-            <button id="cancel-edit-btn" type="button" class="hidden">Cancel</button>
-            <button id="save-item-btn" type="submit">Add bookmark</button>
-          </div>
-        </form>
-
-        <div id="items-list" class="list"></div>
-        <p id="items-empty" class="empty hidden">No bookmarks in this category yet.</p>
       </div>
     </div>
 
