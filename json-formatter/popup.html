@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>JSON Formatter</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>JSON Formatter</h1>
+    <span id="status" class="status"></span>
+  </header>
+
+  <textarea id="input" spellcheck="false" placeholder="Paste JSON here…"></textarea>
+
+  <div class="toolbar">
+    <button id="beautify" title="Pretty-print with 2-space indent">Beautify</button>
+    <button id="minify" title="Strip all whitespace">Minify</button>
+    <button id="copy" title="Copy result to clipboard">Copy</button>
+    <button id="clear" title="Clear the textarea">Clear</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
