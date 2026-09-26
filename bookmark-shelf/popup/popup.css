@@ -14,9 +14,24 @@
   box-sizing: border-box;
 }
 
+/* Fixed, not just capped: Chrome sizes an extension popup's actual native
+   window from the document's layout at open time. If height were left to
+   shrink-to-fit content, the popup window would be locked in small (e.g.
+   one category), and anything shown later that needs more room (like the
+   QR overlay) can't force that window to grow — it just renders past the
+   window's real edge instead. Fixing both dimensions up front means Chrome
+   always sizes the window to this exact box, and content that doesn't fit
+   scrolls inside it (see `.list`) rather than depending on a resize. */
+html,
 body {
   width: 420px;
+  height: 600px;
   margin: 0;
+  overflow: hidden;
+}
+
+body {
+  position: relative;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   color: var(--text);
@@ -26,7 +41,7 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  max-height: 600px;
+  height: 100%;
 }
 
 header {
@@ -350,7 +365,11 @@ button.confirm-no:hover {
 }
 
 .overlay {
-  position: fixed;
+  /* absolute, not fixed: it covers `body`, which now has a real fixed
+     size (see above) instead of being sized off of whatever content
+     happens to be visible — so this can never exceed the popup's actual
+     window bounds. */
+  position: absolute;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
   display: flex;
@@ -363,6 +382,8 @@ button.confirm-no:hover {
   border-radius: 10px;
   padding: 16px;
   width: 280px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
