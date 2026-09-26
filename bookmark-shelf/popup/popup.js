@@ -527,8 +527,13 @@ function showQr(title, url) {
   qr.addData(url);
   qr.make();
 
-  const cellSize = 6;
+  // Longer URLs need more QR modules, which would otherwise blow up the
+  // canvas to thousands of pixels at a fixed cell size — scale the cell
+  // size down so the rendered code stays a consistent, popup-sized square
+  // no matter how much data it encodes.
+  const targetSize = 220;
   const margin = 2;
+  const cellSize = Math.max(2, Math.min(8, Math.floor(targetSize / qr.getModuleCount())));
   const size = (qr.getModuleCount() + margin * 2) * cellSize;
   qrCanvas.width = size;
   qrCanvas.height = size;
