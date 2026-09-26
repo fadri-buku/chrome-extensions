@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Bookmark Shelf</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1>Bookmark Shelf</h1>
+      </header>
+
+      <div class="search-row">
+        <input id="search-input" type="search" placeholder="Search all bookmarks…" autocomplete="off" />
+      </div>
+
+      <div id="search-results" class="list hidden"></div>
+
+      <div id="shelf-view" class="view">
+        <div class="shelf-controls">
+          <form id="add-category-form" class="new-category-row">
+            <input id="new-category-input" type="text" placeholder="New category name" autocomplete="off" />
+            <button type="submit">Add</button>
+          </form>
+          <button id="expand-all-btn" type="button" class="text-btn">Collapse all</button>
+        </div>
+        <div id="categories-list" class="list"></div>
+        <p id="categories-empty" class="empty hidden">No categories yet — add one above.</p>
+      </div>
+    </div>
+
+    <div id="qr-overlay" class="overlay hidden">
+      <div class="qr-card">
+        <button id="qr-close-btn" class="icon-btn" type="button" aria-label="Close">✕</button>
+        <div id="qr-title" class="qr-title"></div>
+        <canvas id="qr-canvas"></canvas>
+        <div id="qr-url" class="qr-url"></div>
+        <button id="qr-download-btn" type="button">Download PNG</button>
+      </div>
+    </div>
+
+    <script src="../lib/qrcode.js"></script>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
