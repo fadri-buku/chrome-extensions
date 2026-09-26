@@ -3,7 +3,7 @@
   --fg: #1a1a2e;
   --border: #d6d9e0;
   --textarea-bg: #f7f8fa;
-  --accent: #4c51bf;
+  --accent: #0f766e;
   --accent-fg: #ffffff;
   --error: #c53030;
   --ok: #2f855a;
@@ -16,8 +16,8 @@
     --fg: #e6e6f0;
     --border: #33333f;
     --textarea-bg: #1e1e29;
-    --accent: #7c82f2;
-    --accent-fg: #16161f;
+    --accent: #2dd4bf;
+    --accent-fg: #0b1120;
     --error: #fc8181;
     --ok: #68d391;
     --muted: #9ca3af;
