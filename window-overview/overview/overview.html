@@ -14,6 +14,7 @@
       <button data-view="fresh">By freshness</button>
       <button data-view="site">By site</button>
     </div>
+    <a id="triagebtn" href="../triage/triage.html" title="Review stale tabs one by one">🎮 Triage <span class="debtpill">debt <b id="debtnum">0</b></span></a>
     <input id="search" type="search" placeholder="Search title or URL…   ( / )">
   </header>
   <div id="bar">
@@ -29,6 +30,7 @@
     <button id="selclear">Clear</button>
   </div>
   <div id="toast" hidden><span id="toastmsg"></span><button id="undo">Undo</button></div>
+  <script src="../lib/shared.js"></script>
   <script src="overview.js"></script>
 </body>
 </html>

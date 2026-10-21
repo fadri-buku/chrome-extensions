@@ -19,6 +19,15 @@ Every tile shows favicon, title, domain, `open …` (how long the tab has existe
 - Search by title or URL. Keyboard: `/` search, `Esc` clear, `Delete` close selected, `Ctrl/Cmd+A` select shown, `Ctrl/Cmd+Z` undo.
 - Updates live as tabs and windows change; durations tick every 30s.
 
+## Tab Triage (the game)
+Click **🎮 Triage** on the board. It shows stale tabs one at a time and every choice acts on your real tabs:
+- **Keep** (`K`): resets the tab's idle timer, so it stops counting as stale.
+- **Snooze** (`S`): closes the tab and reopens it in the background after 1, 3 or 7 days (default 7). Snoozed tabs survive browser restarts; overdue ones reopen on the next startup. Manage them under "snoozed tabs waiting".
+- **Close** (`C`): closes it. `Z` undoes the last decision (reopens a closed tab, cancels a snooze, reverts a keep). `Space` skips, `Open tab ↗` jumps to it.
+- Pick how stale a tab must be to appear (1 hour to 7 days). Pinned tabs and tabs playing audio are never included.
+
+Scoring: **tab debt** grows with idle time (12 per idle day, capped at 400 per tab; 0 if used in the last hour) and is shown on the board and in Triage. Each decision pays down that tab's debt and earns points (close 10, snooze 8, keep 3) with a combo multiplier for decisions made within 6s of each other. Points set your level. A day counts toward your **streak** if you review 5+ tabs or clear the queue. Badges: Spring Cleaner (5+ closed in a session), Speed Reader (10+ reviewed in under 60s), Fresh Start (nothing idle over 7 days), Zero Debt (debt reaches 0).
+
 ## How "open" time works
 Chrome does not record tab creation time, so the background worker timestamps tabs as they open (stored in `chrome.storage.local`). Tabs already open at install, or after a browser restart, show a lower bound like `open ≥3h`. "used … ago" comes from Chrome's own `lastAccessed` and is always accurate.
 
@@ -27,4 +36,4 @@ Chrome does not record tab creation time, so the background worker timestamps ta
 2. **Load unpacked** and select this `window-overview/` folder.
 3. Click the toolbar icon.
 
-Permissions: `tabs` (titles/URLs) and `storage` (open times). Nothing leaves your browser.
+Permissions: `tabs` (titles/URLs), `storage` (open times, game progress, snoozed tabs) and `alarms` (wake snoozed tabs). Nothing leaves your browser.

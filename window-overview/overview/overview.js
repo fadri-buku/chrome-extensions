@@ -8,7 +8,7 @@ const BUCKETS = [
 ];
 
 let view = localStorage.getItem("view2") || "fresh";
-let wins = [], tabs = [], openedAt = {};
+let wins = [], tabs = [], openedAt = {}, kept = {};
 let selected = new Set();
 let winFilter = new Set();
 let lastClicked = null;
@@ -18,16 +18,6 @@ let order = []; // tab ids in the order they are rendered, for shift-range selec
 
 const winColor = (i) => COLORS[i % COLORS.length];
 const hue = (s) => { let n = 0; for (const c of s) n = (n * 31 + c.charCodeAt(0)) % 360; return n; };
-const hostOf = (u) => { try { return new URL(u).host || u; } catch { return u || ""; } };
-
-function ago(ms) {
-  const m = Math.floor(ms / 60000);
-  if (m < 1) return "<1m";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -36,12 +26,7 @@ function el(tag, cls, text) {
   return e;
 }
 
-// Minutes since the tab was last used (active tabs count as 0).
-function idleMin(t) {
-  if (t.active) return 0;
-  const last = t.lastAccessed || openedAt[t.id]?.t || Date.now();
-  return (Date.now() - last) / 60000;
-}
+const idleOf = (t) => idleMin(t, kept, openedAt);
 
 // ---------- actions ----------
 function toast(msg, undo) {
@@ -112,7 +97,7 @@ function tile(t, dupCount) {
   const o = openedAt[t.id];
   const parts = [hostOf(t.url)];
   if (o) parts.push(`open ${o.approx ? "≥" : ""}${ago(Date.now() - o.t)}`);
-  if (!t.active) parts.push(`used ${ago(idleMin(t) * 60000)} ago`);
+  if (!t.active) parts.push(`used ${ago(idleOf(t) * 60000)} ago`);
   sub.textContent = parts.join(" · ");
   if (dupCount > 1) sub.append(" · ", el("span", "dup", `${dupCount}× open`));
   info.append(el("div", "title", t.title || t.url), sub);
@@ -241,6 +226,8 @@ function render() {
   $("dups").textContent = `⧉ Close ${extras.length} duplicate${extras.length > 1 ? "s" : ""}`;
   $("dups").onclick = () => closeTabs(extras);
 
+  const debt = tabs.filter(triageable).reduce((n, t) => n + debtOf(idleOf(t)), 0);
+  $("debtnum").textContent = debt.toLocaleString();
   renderChips();
 
   order = [];
@@ -249,14 +236,14 @@ function render() {
   const groups = [];
   if (view === "fresh") {
     const buckets = BUCKETS.map((b) => ({ ...b, list: [] }));
-    shown.forEach((t) => buckets.find((b) => b.test(idleMin(t))).list.push(t));
-    buckets.forEach((b) => { b.list.sort((a, c) => idleMin(a) - idleMin(c)); groups.push(group(b.name, b.list, { bad: b.bad }, urlCount)); });
+    shown.forEach((t) => buckets.find((b) => b.test(idleOf(t))).list.push(t));
+    buckets.forEach((b) => { b.list.sort((a, c) => idleOf(a) - idleOf(c)); groups.push(group(b.name, b.list, { bad: b.bad }, urlCount)); });
   } else {
     const bySite = {};
     shown.forEach((t) => (bySite[hostOf(t.url)] = bySite[hostOf(t.url)] || []).push(t));
     Object.entries(bySite).sort((a, b) => b[1].length - a[1].length).forEach(([h, list]) => {
-      list.sort((a, c) => idleMin(a) - idleMin(c));
-      groups.push(group(h, list, { sub: `oldest ${ago(Math.max(...list.map((t) => idleMin(t))) * 60000)}` }, urlCount));
+      list.sort((a, c) => idleOf(a) - idleOf(c));
+      groups.push(group(h, list, { sub: `oldest ${ago(Math.max(...list.map((t) => idleOf(t))) * 60000)}` }, urlCount));
     });
   }
   main.replaceChildren(...(shown.length ? groups : [el("div", "empty", "No matching tabs")]));
@@ -269,7 +256,9 @@ function render() {
 }
 
 async function load() {
-  openedAt = (await chrome.storage.local.get("openedAt")).openedAt || {};
+  const s = await chrome.storage.local.get(["openedAt", "kept"]);
+  openedAt = s.openedAt || {};
+  kept = s.kept || {};
   wins = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
   render();
 }

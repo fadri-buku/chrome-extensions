@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tab Triage</title>
+  <link rel="stylesheet" href="triage.css">
+</head>
+<body>
+  <div class="top">
+    <a class="back" href="../overview/overview.html">← Board</a>
+    <span class="logo">🗂️ Tab Triage</span>
+    <span class="sp"></span>
+    <span class="pill debt"><small>Tab debt</small><b id="debt">–</b></span>
+    <span class="pill streak">🔥 <b id="streak">0</b><small>day streak</small></span>
+    <span class="pill">⭐ <b id="lvl">Lv 1</b><small id="lvlname"></small></span>
+  </div>
+  <div class="wrap" id="app"></div>
+  <div id="confetti"></div>
+  <div id="note" hidden></div>
+  <script src="../lib/shared.js"></script>
+  <script src="triage.js"></script>
+</body>
+</html>

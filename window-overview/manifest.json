@@ -5,7 +5,8 @@
   "description": "See every Chrome window and tab on one page, search them, close them, and move tabs between windows.",
   "permissions": [
     "tabs",
-    "storage"
+    "storage",
+    "alarms"
   ],
   "background": {
     "service_worker": "background.js"

@@ -33,6 +33,29 @@ chrome.tabs.onReplaced.addListener((added, removed) => update((d) => {
   delete d[removed];
 }));
 
+// ---- Snoozed tabs (created by the triage game) ----
+// storage.local.snoozed: [{ id, url, title, wakeAt }]; one alarm per entry named "snooze:<id>".
+async function wake(id) {
+  const { snoozed = [] } = await chrome.storage.local.get("snoozed");
+  const s = snoozed.find((x) => x.id === id);
+  if (!s) return;
+  await chrome.storage.local.set({ snoozed: snoozed.filter((x) => x.id !== id) });
+  try { await chrome.tabs.create({ url: s.url, active: false }); }
+  catch { await chrome.windows.create({ url: s.url }); }
+}
+
+// Alarms can be lost across restarts: wake anything overdue and re-arm the rest.
+async function sweepSnoozed() {
+  const { snoozed = [] } = await chrome.storage.local.get("snoozed");
+  for (const s of snoozed) {
+    if (s.wakeAt <= Date.now()) await wake(s.id);
+    else chrome.alarms.create(`snooze:${s.id}`, { when: s.wakeAt });
+  }
+}
+chrome.alarms.onAlarm.addListener((a) => { if (a.name.startsWith("snooze:")) wake(a.name.slice(7)); });
+chrome.runtime.onInstalled.addListener(sweepSnoozed);
+chrome.runtime.onStartup.addListener(sweepSnoozed);
+
 // Clicking the icon focuses an existing dashboard tab, or opens a new one.
 chrome.action.onClicked.addListener(async () => {
   const [existing] = await chrome.tabs.query({ url: PAGE });

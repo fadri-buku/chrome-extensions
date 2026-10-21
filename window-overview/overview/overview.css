@@ -16,7 +16,10 @@ h1 { font-size: 17px; margin: 0; }
 .seg { display: flex; background: var(--col); border-radius: 9px; padding: 3px; margin-left: 8px; }
 .seg button { border: 0; background: none; padding: 5px 12px; border-radius: 7px; color: var(--muted); font-size: 13px; }
 .seg button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 2px #0003; }
-#search { margin-left: auto; width: 280px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
+#triagebtn { margin-left: auto; text-decoration: none; color: #fff; background: linear-gradient(135deg, #5b6cff, #8a5cff); border-radius: 10px; padding: 7px 14px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 8px #5b6cff55; }
+#triagebtn:hover { filter: brightness(1.1); }
+.debtpill { background: #0003; border-radius: 6px; padding: 1px 7px; margin-left: 6px; font-size: 12px; font-weight: 500; }
+#search { width: 280px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
 #search:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
 #bar { display: flex; align-items: center; gap: 12px; padding: 12px 24px 0; flex-wrap: wrap; }
