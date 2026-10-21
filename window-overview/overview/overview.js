@@ -2,6 +2,24 @@ const $windows = document.getElementById("windows");
 const $search = document.getElementById("search");
 const $summary = document.getElementById("summary");
 let dragTabId = null;
+let openedAt = {};
+
+function ago(ms) {
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "<1m";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+function ageText(tab) {
+  const parts = [];
+  const o = openedAt[tab.id];
+  if (o) parts.push(`open ${o.approx ? "≥" : ""}${ago(Date.now() - o.t)}`);
+  if (tab.lastAccessed && !tab.active) parts.push(`used ${ago(Date.now() - tab.lastAccessed)} ago`);
+  return parts.join(" · ");
+}
 
 function host(url) {
   try { return new URL(url).host || url; } catch { return url || ""; }
@@ -29,7 +47,9 @@ function tabRow(tab, wins) {
   fav.onerror = () => fav.removeAttribute("src");
 
   const meta = el("div", "meta");
+  const age = ageText(tab);
   meta.append(el("div", "title", tab.title || tab.url), el("div", "host", host(tab.url)));
+  if (age) meta.append(el("div", "host age", age));
 
   const flags = el("span", "flags", [tab.pinned && "📌", tab.audible && "🔊", tab.discarded && "💤"].filter(Boolean).join(" "));
 
@@ -70,6 +90,7 @@ function windowCard(win, index, query) {
 }
 
 async function render() {
+  openedAt = (await chrome.storage.local.get("openedAt")).openedAt || {};
   const query = $search.value.trim().toLowerCase();
   const wins = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
   const total = wins.reduce((n, w) => n + w.tabs.length, 0);
@@ -80,7 +101,7 @@ async function render() {
 }
 
 let timer;
-const refresh = () => { clearTimeout(timer); timer = setTimeout(render, 100); };
+const refresh = () => { clearTimeout(timer); timer = setTimeout(() => { if (dragTabId === null) render(); }, 100); };
 
 $search.addEventListener("input", render);
 [chrome.tabs.onCreated, chrome.tabs.onRemoved, chrome.tabs.onUpdated, chrome.tabs.onMoved,
@@ -88,4 +109,6 @@ $search.addEventListener("input", render);
  chrome.windows.onCreated, chrome.windows.onRemoved, chrome.windows.onFocusChanged]
   .forEach((ev) => ev.addListener(refresh));
 
+chrome.storage.onChanged.addListener(refresh);
+setInterval(refresh, 30000); // keep durations ticking
 render();

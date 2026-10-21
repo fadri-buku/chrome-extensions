@@ -3,8 +3,13 @@
   "name": "Window Overview",
   "version": "1.0.0",
   "description": "See every Chrome window and tab on one page, search them, close them, and move tabs between windows.",
-  "permissions": ["tabs"],
-  "background": { "service_worker": "background.js" },
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "Window Overview",
     "default_icon": {
