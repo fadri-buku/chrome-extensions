@@ -20,13 +20,13 @@ async function reconcileAll() {
   const live = new Set(tabs.map((t) => String(t.id)));
   await update((data) => {
     for (const id of Object.keys(data)) if (!live.has(id)) delete data[id];
-    for (const t of tabs) if (!data[t.id]) data[t.id] = { t: Date.now(), approx: true };
+    for (const t of tabs) if (!data[t.id]) data[t.id] = { t: Date.now(), approx: true, w: t.windowId };
   });
 }
 
 chrome.runtime.onInstalled.addListener(reconcileAll);
 chrome.runtime.onStartup.addListener(reconcileAll);
-chrome.tabs.onCreated.addListener((tab) => update((d) => { d[tab.id] = { t: Date.now(), approx: false }; }));
+chrome.tabs.onCreated.addListener((tab) => update((d) => { d[tab.id] = { t: Date.now(), approx: false, w: tab.windowId }; }));
 chrome.tabs.onRemoved.addListener((id) => update((d) => { delete d[id]; }));
 chrome.tabs.onReplaced.addListener((added, removed) => update((d) => {
   d[added] = d[removed] || { t: Date.now(), approx: true };

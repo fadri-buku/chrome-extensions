@@ -34,3 +34,21 @@ main { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr
 .btn.close:hover { color: var(--danger); }
 .empty { color: var(--muted); padding: 40px; grid-column: 1 / -1; text-align: center; }
 .age { color: var(--accent); }
+
+#views { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+#views button { border: 0; background: var(--card); color: var(--muted); padding: 6px 12px; cursor: pointer; font: inherit; }
+#views button.on { background: var(--accent); color: #fff; }
+main.graph-mode { display: block; max-width: 900px; margin: 0 auto; }
+.graph { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.gsvg { flex: none; }
+.glist { list-style: none; margin: 0; padding-left: 0; padding-bottom: 12px; flex: 1; min-width: 0; }
+.grow { display: flex; align-items: center; gap: 8px; padding-right: 10px; cursor: pointer; border-radius: 0 8px 8px 0; transition: opacity .15s; }
+.grow:hover { background: color-mix(in srgb, var(--lane) 12%, transparent); }
+.grow.faded { opacity: .25; }
+.gmeta { flex: 1; min-width: 0; }
+.grow:hover .btn { visibility: visible; }
+.gsvg [data-lane] { transition: opacity .15s; }
+.gsvg .dim, .glist .dim { opacity: .18; }
+.gsvg .hot circle:first-child { r: 9; }
+.lane-label { cursor: pointer; }
+.lane-drop.over { fill: color-mix(in srgb, var(--accent) 20%, transparent); }

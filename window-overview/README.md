@@ -3,7 +3,9 @@
 One page that shows every open Chrome window and the tabs inside it.
 
 - Click the toolbar icon to open (or focus) the dashboard.
-- One card per window, one row per tab (favicon, title, domain; 📌 pinned, 🔊 audible, 💤 discarded).
+- Two views (toggle in the header): **Cards**, and **Graph**, a git-log style view.
+- Graph: each window is a colored lane, each tab a commit dot, newest at the top. Hover a row to highlight its lane; click to jump; drag a row onto another lane to move it; click a lane badge to focus that window. Filled dot = pinned, big dot = active tab, dashed curve = tab moved from the window it was opened in, `⧉ dup` = same URL open more than once. Search dims non-matching commits.
+- Cards: one card per window, one row per tab (favicon, title, domain; 📌 pinned, 🔊 audible, 💤 discarded).
 - Search by title or URL across all windows.
 - Click a tab to jump to it; ✕ closes it; ⧉ moves it to a new window.
 - Drag a tab onto another window's card to move it there.

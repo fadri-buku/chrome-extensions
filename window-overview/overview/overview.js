@@ -3,6 +3,12 @@ const $search = document.getElementById("search");
 const $summary = document.getElementById("summary");
 let dragTabId = null;
 let openedAt = {};
+let view = localStorage.getItem("view") || "graph";
+document.querySelectorAll("#views button").forEach((b) => b.addEventListener("click", () => {
+  view = b.dataset.view;
+  localStorage.setItem("view", view);
+  render();
+}));
 
 function ago(ms) {
   const m = Math.floor(ms / 60000);
@@ -96,6 +102,12 @@ async function render() {
   const total = wins.reduce((n, w) => n + w.tabs.length, 0);
   $summary.textContent = `${wins.length} windows · ${total} tabs`;
 
+  document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
+  $windows.classList.toggle("graph-mode", view === "graph");
+  if (view === "graph") {
+    $windows.replaceChildren(renderGraph(wins, openedAt, query, { ago }));
+    return;
+  }
   const cards = wins.map((w, i) => windowCard(w, i, query)).filter(Boolean);
   $windows.replaceChildren(...(cards.length ? cards : [el("div", "empty", "No matching tabs")]));
 }
