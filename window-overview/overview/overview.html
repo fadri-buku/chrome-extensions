@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Window Overview</title>
+  <link rel="stylesheet" href="overview.css">
+</head>
+<body>
+  <header>
+    <h1>Window Overview</h1>
+    <span id="summary"></span>
+    <div id="views" class="seg">
+      <button data-view="fresh">By freshness</button>
+      <button data-view="site">By site</button>
+    </div>
+    <a id="triagebtn" href="../triage/triage.html" title="Review stale tabs one by one">🎮 Triage <span class="debtpill">debt <b id="debtnum">0</b></span></a>
+    <input id="search" type="search" placeholder="Search title or URL…   ( / )">
+  </header>
+  <div id="bar">
+    <div id="chips"></div>
+    <button id="dups" hidden></button>
+  </div>
+  <main id="main"></main>
+  <div id="selbar" hidden>
+    <span id="selcount"></span>
+    <button id="selall">Select all shown</button>
+    <label>Move to <select id="moveto"></select></label>
+    <button id="selclose" class="danger">Close selected</button>
+    <button id="selclear">Clear</button>
+  </div>
+  <div id="toast" hidden><span id="toastmsg"></span><button id="undo">Undo</button></div>
+  <script src="../lib/shared.js"></script>
+  <script src="overview.js"></script>
+</body>
+</html>
