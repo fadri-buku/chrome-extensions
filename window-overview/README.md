@@ -9,7 +9,7 @@ One page that shows every open Chrome window and the tabs inside it, built for c
 Every tile shows favicon, title, domain, `open …` (how long the tab has existed) and `used … ago`, plus a colored `W#` badge for its window.
 
 ## Thumbnails
-Toggle **🖼 Thumbnails** in the header to show a page preview on every tile. Chrome only allows screenshots of the visible tab, so previews are captured in the background when you switch to a tab or it finishes loading while active; tabs you haven't visited since install show "no preview yet". Previews are small JPEGs kept in local storage and removed when the tab closes.
+Toggle **🖼 Thumbnails** in the header to show a page preview on every tile. Chrome only allows screenshots of the visible tab, so previews are captured in the background when you switch to a tab or it finishes loading while active; tabs you haven't visited since install show "no preview yet". Pick a size: **Small** (6 per row), **Medium** (4 per row) or **3×3** (default: 3 across and 3 down, so nine large thumbnails fill the screen; scroll for more). Previews are small JPEGs kept in local storage and removed when the tab closes.
 
 ## Interactions
 - Click a tile to jump to the tab. Hover for **Pin**, **Mute** (when audible/muted) and **✕**.

@@ -96,16 +96,32 @@ img.ico { background: var(--bg); padding: 4px; }
 #thumbbtn { margin-left: auto; }
 
 /* thumbnail cards */
-body.thumbs .group { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; align-content: start; }
+body.thumbs .group { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 8px; align-content: start; }
+body.thumbs main.fresh { grid-template-columns: minmax(0, 1fr); }
+body.thumbs main.site { columns: 1; }
+body.thumbs main.site .group { margin-bottom: 16px; }
 body.thumbs .ghead { grid-column: 1 / -1; }
 body.thumbs .tile { flex-wrap: wrap; align-items: flex-start; margin-bottom: 0; padding: 0 0 8px; overflow: hidden; }
 body.thumbs .tile > * { margin-left: 8px; }
-body.thumbs .tile > .thumb { margin: 0 0 4px; width: 100%; height: 110px; object-fit: cover; object-position: top; flex: none; background: var(--bg); border-radius: 10px 10px 0 0; }
+body.thumbs .tile > .thumb { margin: 0 0 4px; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; flex: none; background: var(--bg); border-radius: 10px 10px 0 0; }
 .thumb.none { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; }
 body.thumbs .tile .chk { position: absolute; top: 8px; left: 8px; z-index: 2; background: var(--card); border-radius: 5px; }
 body.thumbs .tile:hover .chk, body.thumbs.selecting .tile .chk { width: 16px; }
 body.thumbs .tile .acts { position: absolute; top: 6px; right: 6px; z-index: 2; background: var(--card); border-radius: 8px; padding: 2px; }
 body.thumbs .tile .flags { position: absolute; top: 8px; right: 8px; z-index: 1; background: var(--card); border-radius: 6px; padding: 0 3px; }
 body.thumbs .tile .flags:empty { display: none; }
-body.thumbs .tile .wb { position: absolute; left: 8px; top: 86px; z-index: 1; }
+body.thumbs .tile .wb { position: absolute; left: 6px; top: 6px; z-index: 1; }
 body.thumbs .tile .info { flex: 1 1 100px; }
+
+#thumbsize { margin-left: 0; }
+#thumbsize[hidden] { display: none; }
+#thumbbtn { margin-left: auto; }
+#thumbsize:not([hidden]) + #triagebtn { margin-left: 0; }
+/* 3x3: three across, rows sized so three rows fill the viewport (nine thumbnails per screen) */
+body.fit .group { grid-template-rows: auto; grid-auto-rows: calc((100vh - 250px) / 3); min-height: 0; }
+body.fit .tile { flex-direction: column; flex-wrap: nowrap; align-items: stretch; height: 100%; min-height: 0; }
+body.fit .tile > .thumb { aspect-ratio: auto; flex: 1 1 0; min-height: 0; width: auto; height: auto; margin: 0 0 6px; }
+body.fit .tile > .info { flex: none; }
+body.fit .tile > .ico { display: none; }
+body.fit .tile .title { font-size: 15px; }
+header button, header a { white-space: nowrap; }

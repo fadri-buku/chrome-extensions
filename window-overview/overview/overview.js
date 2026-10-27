@@ -10,6 +10,7 @@ const BUCKETS = [
 let view = localStorage.getItem("view2") || "fresh";
 let thumbsOn = localStorage.getItem("thumbs") === "1";
 let thumbs = {};
+let thumbSize = localStorage.getItem("thumbsize") || "3x3"; // "6" / "4" per row, or "3x3" = nine fill the screen
 let wins = [], tabs = [], openedAt = {}, kept = {};
 let selected = new Set();
 let winFilter = new Set();
@@ -290,6 +291,10 @@ function render() {
   document.body.classList.toggle("selecting", selected.size > 0);
   document.body.classList.toggle("thumbs", thumbsOn);
   $("thumbbtn").classList.toggle("on", thumbsOn);
+  $("thumbsize").hidden = !thumbsOn;
+  document.querySelectorAll("#thumbsize button").forEach((b) => b.classList.toggle("on", b.dataset.size === thumbSize));
+  document.body.style.setProperty("--cols", thumbSize === "3x3" ? 3 : thumbSize);
+  document.body.classList.toggle("fit", thumbsOn && thumbSize === "3x3");
 
   // duplicates banner
   const extras = [];
@@ -364,6 +369,11 @@ $("thumbbtn").addEventListener("click", () => {
   localStorage.setItem("thumbs", thumbsOn ? "1" : "0");
   load();
 });
+document.querySelectorAll("#thumbsize button").forEach((b) => b.addEventListener("click", () => {
+  thumbSize = b.dataset.size;
+  localStorage.setItem("thumbsize", thumbSize);
+  render();
+}));
 $("search").addEventListener("input", render);
 $("selclose").addEventListener("click", () => closeTabs([...selected]));
 $("selclear").addEventListener("click", () => { selected.clear(); render(); });

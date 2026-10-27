@@ -52,7 +52,7 @@ async function captureThumb(tabId, windowId) {
     if (!tab.active || tab.windowId !== windowId || tab.url.startsWith("chrome-extension://")) return;
     const shot = await chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality: 60 });
     const bmp = await createImageBitmap(await (await fetch(shot)).blob());
-    const w = 320, h = Math.round((bmp.height / bmp.width) * w);
+    const w = 640, h = Math.round((bmp.height / bmp.width) * w);
     const canvas = new OffscreenCanvas(w, h);
     canvas.getContext("2d").drawImage(bmp, 0, 0, w, h);
     const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.6 });
