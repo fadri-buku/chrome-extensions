@@ -17,6 +17,9 @@ Toggle **🖼 Thumbnails** in the header to show a page preview on every tile. C
 ## Live previews
 **🔴 Live** (thumbnail mode) refreshes previews about twice a second, in place without redrawing the board. Chrome can only screenshot the visible tab of each window and limits it to ~2 shots/second, so the *active tab of every window* is live (marked **● LIVE**, cycling round-robin: with N windows each updates every ~N/2 seconds) while background tabs keep their last snapshot. It pauses when the overview tab is hidden or windows are minimized.
 
+## Watch a tab (real-time video)
+Hover a tile in thumbnail mode and click **▶ Watch**. Chrome opens its tab picker (extensions can't pre-select a tab); pick that tab and its tile becomes a smooth live video, even if the tab is in the background. If you pick a different tab than the one you clicked, the video goes on the tile with the matching title. **⏹ Stop** (or Chrome's "Stop sharing") ends it. Chrome shows a "sharing this tab" indicator on watched tabs, and videos stop if the overview page is reloaded.
+
 ## Capture previews
 In thumbnail mode, **📸 Capture previews** visits every tab that has no preview, takes a shot, then returns each window to the tab you had open. Click again to stop. Tabs that were unloaded get loaded in the process.
 

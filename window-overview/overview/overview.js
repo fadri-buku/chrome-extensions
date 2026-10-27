@@ -14,6 +14,7 @@ let thumbSize = localStorage.getItem("thumbsize") || "3x3"; // "6" / "4" per row
 let focusId = null; // keyboard cursor
 let sessions = [];
 let sweeping = false;
+const watching = new Map(); // tabId -> { stream, video }: real-time tab video
 let live = localStorage.getItem("live") === "1";
 let liveIdx = 0, liveTimer;
 let wins = [], tabs = [], openedAt = {}, kept = {};
@@ -179,14 +180,19 @@ function tile(t, dupCount) {
   const x = el("button", "x", "✕");
   x.title = "Close tab";
   x.addEventListener("click", (e) => { e.stopPropagation(); closeTabs([t.id]); });
-  acts.append(...(t.audible || t.mutedInfo?.muted ? [mute] : []), pin, x);
+  const watch = el("button", "", watching.has(t.id) ? "⏹ Stop" : "▶ Watch");
+  watch.title = "Real-time video of this tab (Chrome asks you to pick the tab)";
+  watch.addEventListener("click", (e) => { e.stopPropagation(); watching.has(t.id) ? unwatch(t.id) : watchTab(t); });
+  acts.append(...(thumbsOn && savable(t) ? [watch] : []), ...(t.audible || t.mutedInfo?.muted ? [mute] : []), pin, x);
 
   li.append(chk, icon, info, flags, badge, acts);
   if (thumbsOn) {
     li.classList.add("withthumb");
-    const th = thumbs[t.id] ? el("img", "thumb") : el("div", "thumb none", t.discarded ? "💤 not loaded" : "no preview yet");
-    if (thumbs[t.id]) th.src = thumbs[t.id];
+    const w = watching.get(t.id);
+    const th = w ? w.video : thumbs[t.id] ? el("img", "thumb") : el("div", "thumb none", t.discarded ? "💤 not loaded" : "no preview yet");
+    if (!w && thumbs[t.id]) th.src = thumbs[t.id];
     li.prepend(th);
+    if (w) li.append(el("span", "livedot watch", "● WATCHING"));
     if (live && t.active && savable(t)) li.append(el("span", "livedot", "● LIVE"));
   }
 
@@ -293,6 +299,7 @@ function render() {
   const shown = tabs.filter((t) => (!winFilter.size || winFilter.has(t.windowId)) && (!q || `${t.title} ${t.url}`.toLowerCase().includes(q)));
   selected = new Set([...selected].filter((id) => tabs.some((t) => t.id === id)));
 
+  for (const id of [...watching.keys()]) if (!tabs.some((t) => t.id === id)) { watching.get(id).stream.getTracks().forEach((tr) => tr.stop()); watching.delete(id); }
   $("summary").textContent = `${wins.length} windows · ${tabs.length} tabs`;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
   document.body.classList.toggle("selecting", selected.size > 0);
@@ -348,6 +355,7 @@ function render() {
   }
   main.replaceChildren(...(shown.length ? groups : [el("div", "empty", "No matching tabs")]));
 
+  watching.forEach((w) => w.video.play().catch(() => {})); // detached videos pause
   // selection bar
   $("selbar").hidden = !selected.size;
   $("selcount").textContent = `${selected.size} selected`;
@@ -414,13 +422,48 @@ function renderSessions() {
   });
 }
 
+// ---------- watch a tab (real-time video) ----------
+// Chrome only hands a real video stream of a tab to the user's own pick (getDisplayMedia),
+// so "Watch" opens Chrome's tab picker; choose the tab and its tile becomes a <video>.
+async function watchTab(t) {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 30 }, audio: false,
+      preferCurrentTab: false, selfBrowserSurface: "exclude", systemAudio: "exclude", monitorTypeSurfaces: "exclude", displaySurface: "browser",
+    });
+  } catch { return; } // cancelled
+  const track = stream.getVideoTracks()[0];
+  // The picker can't be pre-aimed; if the chosen tab's title is known, put the video on that tile.
+  const label = track.label || "";
+  const target = tabs.find((x) => x.title && label.includes(x.title) && !watching.has(x.id)) || t;
+  const video = el("video", "thumb");
+  video.muted = true;
+  video.autoplay = true;
+  video.playsInline = true;
+  video.srcObject = stream;
+  watching.set(target.id, { stream, video });
+  track.addEventListener("ended", () => unwatch(target.id));
+  toast(`Watching "${target.title || target.url}" in real time`);
+  render();
+}
+
+function unwatch(id) {
+  const w = watching.get(id);
+  if (!w) return;
+  w.stream.getTracks().forEach((tr) => tr.stop());
+  w.video.srcObject = null;
+  watching.delete(id);
+  render();
+}
+
 // ---------- live previews ----------
 // Chrome can only screenshot the visible tab of each window, and allows ~2 shots a second,
 // so "live" means: round-robin over every window's active tab, refreshing its tile in place.
 function liveTargets() {
   return wins.filter((w) => w.state !== "minimized")
     .map((w) => w.tabs.find((t) => t.active))
-    .filter((t) => t && savable(t));
+    .filter((t) => t && savable(t) && !watching.has(t.id));
 }
 
 async function liveTick() {
@@ -442,6 +485,7 @@ function onStorage(changes) {
   if (keys.length && keys.every((k) => k.startsWith("thumb:"))) {
     for (const k of keys) {
       const id = k.slice(6), url = changes[k].newValue;
+      if (watching.has(+id)) continue;
       if (!url) { delete thumbs[id]; continue; }
       thumbs[id] = url;
       const img = document.querySelector(`.tile[data-id="${id}"] img.thumb`);
