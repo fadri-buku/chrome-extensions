@@ -18,6 +18,9 @@ function update(fn) {
 async function reconcileAll() {
   const tabs = await chrome.tabs.query({});
   const live = new Set(tabs.map((t) => String(t.id)));
+  const stale = Object.keys(await chrome.storage.local.get(null)).filter((k) => k.startsWith("thumb:") && !live.has(k.slice(6)));
+  if (stale.length) await chrome.storage.local.remove(stale);
+  tabs.filter((t) => t.active).forEach((t) => scheduleThumb(t.id, t.windowId));
   await update((data) => {
     for (const id of Object.keys(data)) if (!live.has(id)) delete data[id];
     for (const t of tabs) if (!data[t.id]) data[t.id] = { t: Date.now(), approx: true, w: t.windowId };
@@ -32,6 +35,35 @@ chrome.tabs.onReplaced.addListener((added, removed) => update((d) => {
   d[added] = d[removed] || { t: Date.now(), approx: true };
   delete d[removed];
 }));
+
+// ---- Thumbnails ----
+// storage.local["thumb:<tabId>"]: small JPEG data URL of the tab's last visible state.
+// Chrome can only screenshot the visible tab of a window, so we capture when a tab is
+// activated or finishes loading while active.
+const thumbTimers = {};
+function scheduleThumb(tabId, windowId) {
+  clearTimeout(thumbTimers[tabId]);
+  thumbTimers[tabId] = setTimeout(() => captureThumb(tabId, windowId), 700);
+}
+
+async function captureThumb(tabId, windowId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.active || tab.windowId !== windowId || tab.url.startsWith("chrome-extension://")) return;
+    const shot = await chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality: 60 });
+    const bmp = await createImageBitmap(await (await fetch(shot)).blob());
+    const w = 320, h = Math.round((bmp.height / bmp.width) * w);
+    const canvas = new OffscreenCanvas(w, h);
+    canvas.getContext("2d").drawImage(bmp, 0, 0, w, h);
+    const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.6 });
+    const url = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+    await chrome.storage.local.set({ [`thumb:${tabId}`]: url });
+  } catch {} // restricted pages (chrome://, web store), minimized windows, closed tabs
+}
+
+chrome.tabs.onActivated.addListener(({ tabId, windowId }) => scheduleThumb(tabId, windowId));
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === "complete" && tab.active) scheduleThumb(tabId, tab.windowId); });
+chrome.tabs.onRemoved.addListener((id) => chrome.storage.local.remove(`thumb:${id}`));
 
 // ---- Snoozed tabs (created by the triage game) ----
 // storage.local.snoozed: [{ id, url, title, wakeAt }]; one alarm per entry named "snooze:<id>".

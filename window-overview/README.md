@@ -8,6 +8,9 @@ One page that shows every open Chrome window and the tabs inside it, built for c
 
 Every tile shows favicon, title, domain, `open …` (how long the tab has existed) and `used … ago`, plus a colored `W#` badge for its window.
 
+## Thumbnails
+Toggle **🖼 Thumbnails** in the header to show a page preview on every tile. Chrome only allows screenshots of the visible tab, so previews are captured in the background when you switch to a tab or it finishes loading while active; tabs you haven't visited since install show "no preview yet". Previews are small JPEGs kept in local storage and removed when the tab closes.
+
 ## Interactions
 - Click a tile to jump to the tab. Hover for **Pin**, **Mute** (when audible/muted) and **✕**.
 - **Select**: Ctrl/Cmd-click or the checkbox; Shift-click for a range; group checkbox selects a whole group. Once anything is selected, plain clicks toggle selection.
@@ -37,4 +40,4 @@ Chrome does not record tab creation time, so the background worker timestamps ta
 2. **Load unpacked** and select this `window-overview/` folder.
 3. Click the toolbar icon.
 
-Permissions: `tabs` (titles/URLs), `storage` (open times, game progress, snoozed tabs) and `alarms` (wake snoozed tabs). Nothing leaves your browser.
+Permissions: `<all_urls>` and `unlimitedStorage` (page thumbnails), `tabs` (titles/URLs), `storage` (open times, game progress, snoozed tabs) and `alarms` (wake snoozed tabs). Nothing leaves your browser.

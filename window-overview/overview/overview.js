@@ -8,6 +8,8 @@ const BUCKETS = [
 ];
 
 let view = localStorage.getItem("view2") || "fresh";
+let thumbsOn = localStorage.getItem("thumbs") === "1";
+let thumbs = {};
 let wins = [], tabs = [], openedAt = {}, kept = {};
 let selected = new Set();
 let winFilter = new Set();
@@ -174,6 +176,12 @@ function tile(t, dupCount) {
   acts.append(...(t.audible || t.mutedInfo?.muted ? [mute] : []), pin, x);
 
   li.append(chk, icon, info, flags, badge, acts);
+  if (thumbsOn) {
+    li.classList.add("withthumb");
+    const th = thumbs[t.id] ? el("img", "thumb") : el("div", "thumb none", t.discarded ? "💤 not loaded" : "no preview yet");
+    if (thumbs[t.id]) th.src = thumbs[t.id];
+    li.prepend(th);
+  }
 
   li.addEventListener("click", async (e) => {
     if (e.shiftKey && lastClicked !== null) {
@@ -280,6 +288,8 @@ function render() {
   $("summary").textContent = `${wins.length} windows · ${tabs.length} tabs`;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
   document.body.classList.toggle("selecting", selected.size > 0);
+  document.body.classList.toggle("thumbs", thumbsOn);
+  $("thumbbtn").classList.toggle("on", thumbsOn);
 
   // duplicates banner
   const extras = [];
@@ -334,6 +344,9 @@ async function load() {
   openedAt = s.openedAt || {};
   kept = s.kept || {};
   wins = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
+  const keys = wins.flatMap((w) => w.tabs.map((t) => `thumb:${t.id}`));
+  const got = thumbsOn ? await chrome.storage.local.get(keys) : {};
+  thumbs = Object.fromEntries(Object.entries(got).map(([k, v]) => [k.slice(6), v]));
   render();
 }
 
@@ -346,6 +359,11 @@ document.querySelectorAll("#views button").forEach((b) => b.addEventListener("cl
   localStorage.setItem("view2", view);
   render();
 }));
+$("thumbbtn").addEventListener("click", () => {
+  thumbsOn = !thumbsOn;
+  localStorage.setItem("thumbs", thumbsOn ? "1" : "0");
+  load();
+});
 $("search").addEventListener("input", render);
 $("selclose").addEventListener("click", () => closeTabs([...selected]));
 $("selclear").addEventListener("click", () => { selected.clear(); render(); });
