@@ -14,6 +14,8 @@ let thumbSize = localStorage.getItem("thumbsize") || "3x3"; // "6" / "4" per row
 let focusId = null; // keyboard cursor
 let sessions = [];
 let sweeping = false;
+let live = localStorage.getItem("live") === "1";
+let liveIdx = 0, liveTimer;
 let wins = [], tabs = [], openedAt = {}, kept = {};
 let selected = new Set();
 let winFilter = new Set();
@@ -185,6 +187,7 @@ function tile(t, dupCount) {
     const th = thumbs[t.id] ? el("img", "thumb") : el("div", "thumb none", t.discarded ? "💤 not loaded" : "no preview yet");
     if (thumbs[t.id]) th.src = thumbs[t.id];
     li.prepend(th);
+    if (live && t.active && savable(t)) li.append(el("span", "livedot", "● LIVE"));
   }
 
   li.addEventListener("click", async (e) => {
@@ -297,6 +300,8 @@ function render() {
   $("thumbbtn").classList.toggle("on", thumbsOn);
   $("thumbsize").hidden = !thumbsOn;
   $("sweepbtn").hidden = !thumbsOn;
+  $("livebtn").hidden = !thumbsOn;
+  $("livebtn").classList.toggle("on", live);
   if ($("sessions").open) renderSessions();
   document.querySelectorAll("#thumbsize button").forEach((b) => b.classList.toggle("on", b.dataset.size === thumbSize));
   document.body.style.setProperty("--cols", thumbSize === "3x3" ? 3 : thumbSize);
@@ -409,6 +414,43 @@ function renderSessions() {
   });
 }
 
+// ---------- live previews ----------
+// Chrome can only screenshot the visible tab of each window, and allows ~2 shots a second,
+// so "live" means: round-robin over every window's active tab, refreshing its tile in place.
+function liveTargets() {
+  return wins.filter((w) => w.state !== "minimized")
+    .map((w) => w.tabs.find((t) => t.active))
+    .filter((t) => t && savable(t));
+}
+
+async function liveTick() {
+  clearTimeout(liveTimer);
+  if (!live || !thumbsOn) return;
+  if (!document.hidden && !sweeping) {
+    const targets = liveTargets();
+    if (targets.length) {
+      const t = targets[liveIdx++ % targets.length];
+      try { await chrome.runtime.sendMessage({ type: "capture", tabId: t.id, windowId: t.windowId }); } catch {}
+    }
+  }
+  liveTimer = setTimeout(liveTick, 550);
+}
+
+// Thumbnail writes update the image in place; anything else reloads the board.
+function onStorage(changes) {
+  const keys = Object.keys(changes);
+  if (keys.length && keys.every((k) => k.startsWith("thumb:"))) {
+    for (const k of keys) {
+      const id = k.slice(6), url = changes[k].newValue;
+      if (!url) { delete thumbs[id]; continue; }
+      thumbs[id] = url;
+      const img = document.querySelector(`.tile[data-id="${id}"] img.thumb`);
+      if (img) img.src = url;
+      else if (thumbsOn) refresh();
+    }
+  } else refresh();
+}
+
 // ---------- capture sweep ----------
 async function sweep() {
   if (sweeping) { sweeping = false; return; }
@@ -476,6 +518,7 @@ $("thumbbtn").addEventListener("click", () => {
   thumbsOn = !thumbsOn;
   localStorage.setItem("thumbs", thumbsOn ? "1" : "0");
   load();
+  liveTick();
 });
 document.querySelectorAll("#thumbsize button").forEach((b) => b.addEventListener("click", () => {
   thumbSize = b.dataset.size;
@@ -492,6 +535,12 @@ $("moveto").addEventListener("change", (e) => {
 });
 $("undo").addEventListener("click", undoLast);
 $("sweepbtn").addEventListener("click", sweep);
+$("livebtn").addEventListener("click", () => {
+  live = !live;
+  localStorage.setItem("live", live ? "1" : "0");
+  liveTick();
+  render();
+});
 $("sessbtn").addEventListener("click", () => { $("sessions").showModal(); renderSessions(); });
 $("sessx").addEventListener("click", () => $("sessions").close());
 $("sessions").addEventListener("click", (e) => { if (e.target === $("sessions")) $("sessions").close(); });
@@ -532,6 +581,8 @@ document.addEventListener("keydown", (e) => {
 [chrome.tabs.onCreated, chrome.tabs.onRemoved, chrome.tabs.onUpdated, chrome.tabs.onMoved,
  chrome.tabs.onAttached, chrome.tabs.onDetached, chrome.tabs.onActivated,
  chrome.windows.onCreated, chrome.windows.onRemoved, chrome.windows.onFocusChanged,
- chrome.storage.onChanged].forEach((ev) => ev.addListener(refresh));
+ ].forEach((ev) => ev.addListener(refresh));
+chrome.storage.onChanged.addListener(onStorage);
 setInterval(refresh, 30000); // keep durations ticking
 load();
+liveTick();

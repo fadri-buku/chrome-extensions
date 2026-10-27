@@ -14,6 +14,9 @@ Toggle **🖼 Thumbnails** in the header to show a page preview on every tile. C
 ## Saved sessions
 **💾 Sessions** saves selected tabs, one window, or everything as a named set (keeps window grouping and pins), optionally closing them after. Restore reopens each saved window as a new window. **Save & close** in the selection bar is the one-click version. Only http(s)/file tabs are saved.
 
+## Live previews
+**🔴 Live** (thumbnail mode) refreshes previews about twice a second, in place without redrawing the board. Chrome can only screenshot the visible tab of each window and limits it to ~2 shots/second, so the *active tab of every window* is live (marked **● LIVE**, cycling round-robin: with N windows each updates every ~N/2 seconds) while background tabs keep their last snapshot. It pauses when the overview tab is hidden or windows are minimized.
+
 ## Capture previews
 In thumbnail mode, **📸 Capture previews** visits every tab that has no preview, takes a shot, then returns each window to the tab you had open. Click again to stop. Tabs that were unloaded get loaded in the process.
 

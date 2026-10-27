@@ -152,3 +152,10 @@ dialog[open] { display: flex; flex-direction: column; gap: 12px; }
 .sname { font-weight: 600; }
 .ssub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sess > button:not(.plain) { border: 1px solid var(--accent); background: var(--card); color: var(--accent); border-radius: 8px; padding: 4px 12px; }
+
+#livebtn { border: 1px solid var(--line); background: var(--card); border-radius: 9px; padding: 6px 12px; margin-left: 0; }
+#livebtn[hidden] { display: none; }
+#livebtn.on { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
+.livedot { position: absolute; right: 8px; top: 8px; z-index: 1; background: #d93025; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .5px; padding: 1px 6px; border-radius: 6px; animation: blink 1.6s infinite; pointer-events: none; }
+body.thumbs .tile:hover .livedot { display: none; }
+@keyframes blink { 50% { opacity: .55; } }
