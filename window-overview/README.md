@@ -13,6 +13,7 @@ Every tile shows favicon, title, domain, `open …` (how long the tab has existe
 - **Select**: Ctrl/Cmd-click or the checkbox; Shift-click for a range; group checkbox selects a whole group. Once anything is selected, plain clicks toggle selection.
 - **Selection bar**: close selected, or move them to any window / a new window.
 - **Drag** one tile (or the whole selection) onto a window chip at the top to move it, or onto "New window".
+- **Group windows by site** (By site view): one click turns every site with 2+ tabs into its own window (respects the window chip filter; incognito and normal tabs are never mixed). Each site group also has an **Own window** button. Undo puts tabs back where they were.
 - Window chips filter the board; click to toggle.
 - **Close all** per group; **Close N duplicates** keeps the most recently used copy of each URL.
 - **Undo** toast after every close (reopens the tabs; their order/history is not restored).

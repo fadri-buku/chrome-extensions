@@ -30,7 +30,9 @@ h1 { font-size: 17px; margin: 0; }
 .chip.on { background: color-mix(in srgb, var(--accent) 14%, var(--card)); border-color: var(--accent); }
 .chip.drop { transform: scale(1.08); border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
 .chip small { color: var(--muted); }
+#groupwin { margin-left: auto; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card)); border-radius: 9px; padding: 5px 12px; }
 #dups { margin-left: auto; border: 1px solid #f1d28a; background: #fef3c7; color: #92400e; border-radius: 9px; padding: 5px 12px; }
+#groupwin:not([hidden]) + #dups { margin-left: 0; }
 .wb { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 6px; color: #fff; font-size: 11px; font-weight: 700; flex: none; }
 
 main { padding: 16px 24px; }
@@ -43,6 +45,9 @@ main.site .group { break-inside: avoid; margin-bottom: 16px; }
 .ghead .count { color: var(--muted); font-weight: 500; }
 .ghead .sub { color: var(--muted); font-size: 12px; font-weight: 400; }
 .ghead .gclose { margin-left: auto; }
+.ghead .gmove + .gclose { margin-left: 0; }
+.gmove { margin-left: auto; border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 3px 10px; font-size: 12px; opacity: 0; transition: .12s; }
+.group:hover .gmove { opacity: 1; }
 .gsel { appearance: none; width: 16px; height: 16px; border: 2px solid var(--muted); border-radius: 5px; margin: 0; flex: none; cursor: pointer; display: grid; place-content: center; }
 .gsel:checked, .gsel:indeterminate { background: var(--accent); border-color: var(--accent); }
 .gsel:checked::after { content: "✓"; color: #fff; font-size: 11px; line-height: 1; }
@@ -79,7 +84,7 @@ img.ico { background: var(--bg); padding: 4px; }
 .empty { color: var(--muted); text-align: center; padding: 60px; }
 
 #selbar { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; background: #1f2328; color: #fff; padding: 10px 16px; border-radius: 14px; box-shadow: 0 8px 30px #0006; z-index: 10; }
-#selbar[hidden], #toast[hidden], #dups[hidden] { display: none; }
+#selbar[hidden], #toast[hidden], #dups[hidden], #groupwin[hidden] { display: none; }
 #selbar button, #selbar select { background: #343a42; border: 0; color: #fff; border-radius: 8px; padding: 5px 10px; }
 #selbar .danger { background: #d93025; color: #fff; }
 #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1f2328; color: #fff; border-radius: 10px; padding: 9px 14px; display: flex; gap: 14px; align-items: center; z-index: 11; box-shadow: 0 8px 30px #0006; }

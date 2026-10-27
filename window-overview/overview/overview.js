@@ -30,7 +30,7 @@ const idleOf = (t) => idleMin(t, kept, openedAt);
 
 // ---------- actions ----------
 function toast(msg, undo) {
-  undoInfo = undo || null;
+  undoInfo = undo || null; // async function that reverses the action
   $("toastmsg").textContent = msg;
   $("undo").hidden = !undo;
   $("toast").hidden = false;
@@ -45,18 +45,73 @@ async function closeTabs(ids) {
     .map((t) => ({ url: t.url, windowId: t.windowId, pinned: t.pinned }));
   ids.forEach((id) => selected.delete(id));
   await chrome.tabs.remove(ids);
-  toast(`Closed ${ids.length} tab${ids.length > 1 ? "s" : ""}`, saved);
+  toast(`Closed ${ids.length} tab${ids.length > 1 ? "s" : ""}`, async () => {
+    const live = new Set(wins.map((w) => w.id));
+    for (const t of saved) {
+      try { await chrome.tabs.create({ url: t.url, windowId: live.has(t.windowId) ? t.windowId : undefined, pinned: t.pinned, active: false }); } catch {}
+    }
+  });
 }
 
-async function undoClose() {
-  if (!undoInfo) return;
-  const live = new Set(wins.map((w) => w.id));
-  for (const t of undoInfo) {
-    try { await chrome.tabs.create({ url: t.url, windowId: live.has(t.windowId) ? t.windowId : undefined, pinned: t.pinned, active: false }); } catch {}
-  }
+async function undoLast() {
+  const fn = undoInfo;
+  if (!fn) return;
   $("toast").hidden = true;
   undoInfo = null;
+  await fn();
 }
+
+// Put each list of tabs (same site, same incognito state) into a window of its own.
+async function siteWindows(groups) {
+  const flat = groups.flat();
+  const saved = flat.map((t) => ({ id: t.id, windowId: t.windowId, index: t.index }));
+  try {
+    for (const g of groups) {
+      const ids = g.map((t) => t.id);
+      const w = await chrome.windows.create({ tabId: ids[0], focused: false });
+      if (ids.length > 1) await chrome.tabs.move(ids.slice(1), { windowId: w.id, index: -1 });
+    }
+  } catch (err) {
+    toast(`Could not move tabs: ${err.message}`);
+    return;
+  }
+  selected.clear();
+  toast(`Grouped ${flat.length} tabs into ${groups.length} window${groups.length > 1 ? "s" : ""}`, () => restoreTabs(saved));
+}
+
+async function restoreTabs(saved) {
+  const byWin = new Map();
+  saved.forEach((s) => { if (!byWin.has(s.windowId)) byWin.set(s.windowId, []); byWin.get(s.windowId).push(s); });
+  for (const [wid, list] of byWin) {
+    list.sort((a, b) => a.index - b.index);
+    const alive = await chrome.windows.get(wid).then(() => true, () => false);
+    try {
+      if (alive) {
+        for (const s of list) await chrome.tabs.move(s.id, { windowId: wid, index: s.index });
+      } else {
+        const w = await chrome.windows.create({ tabId: list[0].id, focused: false });
+        if (list.length > 1) await chrome.tabs.move(list.slice(1).map((s) => s.id), { windowId: w.id, index: -1 });
+      }
+    } catch {}
+  }
+}
+
+// Tabs of one site can only share a window with tabs of the same incognito state.
+const incognitoOf = (t) => !!wins.find((w) => w.id === t.windowId)?.incognito;
+const movable = (t) => !(t.url || "").startsWith("chrome-extension://");
+
+function siteBuckets(list) {
+  const m = new Map();
+  list.filter(movable).forEach((t) => {
+    const k = `${incognitoOf(t)}|${hostOf(t.url)}`;
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(t);
+  });
+  return [...m.values()];
+}
+
+// Already sitting alone together in one window: nothing to do.
+const isOwnWindow = (g) => g.every((t) => t.windowId === g[0].windowId) && wins.find((w) => w.id === g[0].windowId)?.tabs.length === g.length;
 
 async function moveTabs(ids, windowId) {
   if (!ids.length) return;
@@ -164,6 +219,15 @@ function group(name, list, opts, dupMap) {
   });
   head.append(cb, document.createTextNode(name), el("span", "count", String(list.length)));
   if (opts.sub) head.append(el("span", "sub", opts.sub));
+  if (opts.ownWindow) {
+    const parts = siteBuckets(list).filter((g) => !isOwnWindow(g));
+    if (parts.length) {
+      const mv = el("button", "gmove", "Own window");
+      mv.title = "Move these tabs into a new window";
+      mv.addEventListener("click", () => siteWindows(parts));
+      head.append(mv);
+    }
+  }
   const close = el("button", "gclose", "Close all");
   close.addEventListener("click", () => closeTabs(list.map((t) => t.id)));
   head.append(close);
@@ -226,6 +290,16 @@ function render() {
   $("dups").textContent = `⧉ Close ${extras.length} duplicate${extras.length > 1 ? "s" : ""}`;
   $("dups").onclick = () => closeTabs(extras);
 
+  // one window per site (only sites with 2+ tabs, so single tabs don't each get a window)
+  const scope = tabs.filter((t) => !winFilter.size || winFilter.has(t.windowId));
+  const plan = view === "site" ? siteBuckets(scope).filter((g) => g.length > 1 && !isOwnWindow(g)) : [];
+  $("groupwin").hidden = !plan.length;
+  $("groupwin").textContent = `▦ Group windows by site (${plan.length})`;
+  $("groupwin").onclick = () => {
+    const n = plan.reduce((c, g) => c + g.length, 0);
+    if (confirm(`Move ${n} tabs into ${plan.length} new window${plan.length > 1 ? "s" : ""}, one per site? You can undo this.`)) siteWindows(plan);
+  };
+
   const debt = tabs.filter(triageable).reduce((n, t) => n + debtOf(idleOf(t)), 0);
   $("debtnum").textContent = debt.toLocaleString();
   renderChips();
@@ -243,7 +317,7 @@ function render() {
     shown.forEach((t) => (bySite[hostOf(t.url)] = bySite[hostOf(t.url)] || []).push(t));
     Object.entries(bySite).sort((a, b) => b[1].length - a[1].length).forEach(([h, list]) => {
       list.sort((a, c) => idleOf(a) - idleOf(c));
-      groups.push(group(h, list, { sub: `oldest ${ago(Math.max(...list.map((t) => idleOf(t))) * 60000)}` }, urlCount));
+      groups.push(group(h, list, { ownWindow: true, sub: `oldest ${ago(Math.max(...list.map((t) => idleOf(t))) * 60000)}` }, urlCount));
     });
   }
   main.replaceChildren(...(shown.length ? groups : [el("div", "empty", "No matching tabs")]));
@@ -280,7 +354,7 @@ $("moveto").addEventListener("change", (e) => {
   const v = e.target.value;
   if (v) moveTabs([...selected], v === "new" ? v : +v);
 });
-$("undo").addEventListener("click", undoClose);
+$("undo").addEventListener("click", undoLast);
 
 document.addEventListener("keydown", (e) => {
   const typing = document.activeElement === $("search");
@@ -290,7 +364,7 @@ document.addEventListener("keydown", (e) => {
     else { selected.clear(); winFilter.clear(); $("search").blur(); render(); }
   } else if (!typing && (e.key === "Delete" || e.key === "Backspace") && selected.size) { e.preventDefault(); closeTabs([...selected]); }
   else if (!typing && (e.ctrlKey || e.metaKey) && e.key === "a") { e.preventDefault(); order.forEach((id) => selected.add(id)); render(); }
-  else if (!typing && (e.ctrlKey || e.metaKey) && e.key === "z" && undoInfo) { e.preventDefault(); undoClose(); }
+  else if (!typing && (e.ctrlKey || e.metaKey) && e.key === "z" && undoInfo) { e.preventDefault(); undoLast(); }
 });
 
 [chrome.tabs.onCreated, chrome.tabs.onRemoved, chrome.tabs.onUpdated, chrome.tabs.onMoved,
