@@ -20,6 +20,8 @@
       <button data-size="4">Medium</button>
       <button data-size="3x3" title="3 across, 3 down: nine thumbnails fill the screen">3×3</button>
     </div>
+    <button id="sweepbtn" hidden title="Visit every tab without a preview to capture one, then return you to where you were">📸 Capture previews</button>
+    <button id="sessbtn" title="Save and restore sets of tabs">💾 Sessions</button>
     <a id="triagebtn" href="../triage/triage.html" title="Review stale tabs one by one">🎮 Triage <span class="debtpill">debt <b id="debtnum">0</b></span></a>
     <input id="search" type="search" placeholder="Search title or URL…   ( / )">
   </header>
@@ -33,9 +35,20 @@
     <span id="selcount"></span>
     <button id="selall">Select all shown</button>
     <label>Move to <select id="moveto"></select></label>
+    <button id="selsave" title="Save as a session, then close">Save &amp; close</button>
     <button id="selclose" class="danger">Close selected</button>
     <button id="selclear">Clear</button>
   </div>
+  <dialog id="sessions">
+    <div class="dhead"><b>Saved sessions</b><button id="sessx" class="plain">✕</button></div>
+    <div class="saverow">
+      <input id="sessname" placeholder="Name (optional)">
+      <select id="sessscope"></select>
+      <label><input id="sessclose" type="checkbox"> close after saving</label>
+      <button id="sesssave">Save</button>
+    </div>
+    <div id="sesslist"></div>
+  </dialog>
   <div id="toast" hidden><span id="toastmsg"></span><button id="undo">Undo</button></div>
   <script src="../lib/shared.js"></script>
   <script src="overview.js"></script>

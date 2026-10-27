@@ -58,8 +58,17 @@ async function captureThumb(tabId, windowId) {
     const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.6 });
     const url = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
     await chrome.storage.local.set({ [`thumb:${tabId}`]: url });
-  } catch {} // restricted pages (chrome://, web store), minimized windows, closed tabs
+    return true;
+  } catch { return false; } // restricted pages (chrome://, web store), minimized windows, closed tabs
 }
+
+// The overview's "Capture previews" sweep activates tabs one by one and asks for a shot of each.
+chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg?.type !== "capture") return;
+  clearTimeout(thumbTimers[msg.tabId]);
+  captureThumb(msg.tabId, msg.windowId).then(reply);
+  return true;
+});
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => scheduleThumb(tabId, windowId));
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === "complete" && tab.active) scheduleThumb(tabId, tab.windowId); });

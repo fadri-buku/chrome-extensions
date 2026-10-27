@@ -11,6 +11,15 @@ Every tile shows favicon, title, domain, `open …` (how long the tab has existe
 ## Thumbnails
 Toggle **🖼 Thumbnails** in the header to show a page preview on every tile. Chrome only allows screenshots of the visible tab, so previews are captured in the background when you switch to a tab or it finishes loading while active; tabs you haven't visited since install show "no preview yet". Pick a size: **Small** (6 per row), **Medium** (4 per row) or **3×3** (default: 3 across and 3 down, so nine large thumbnails fill the screen; scroll for more). Previews are small JPEGs kept in local storage and removed when the tab closes.
 
+## Saved sessions
+**💾 Sessions** saves selected tabs, one window, or everything as a named set (keeps window grouping and pins), optionally closing them after. Restore reopens each saved window as a new window. **Save & close** in the selection bar is the one-click version. Only http(s)/file tabs are saved.
+
+## Capture previews
+In thumbnail mode, **📸 Capture previews** visits every tab that has no preview, takes a shot, then returns each window to the tab you had open. Click again to stop. Tabs that were unloaded get loaded in the process.
+
+## Keyboard
+Arrow keys move a cursor over the tiles (up/down jump a full row in thumbnail mode), `Space` selects, `Enter` jumps to the tab, `X` closes the tab under the cursor (or the selection). Mouse clicks also move the cursor.
+
 ## Interactions
 - Click a tile to jump to the tab. Hover for **Pin**, **Mute** (when audible/muted) and **✕**.
 - **Select**: Ctrl/Cmd-click or the checkbox; Shift-click for a range; group checkbox selects a whole group. Once anything is selected, plain clicks toggle selection.

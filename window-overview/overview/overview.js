@@ -11,6 +11,9 @@ let view = localStorage.getItem("view2") || "fresh";
 let thumbsOn = localStorage.getItem("thumbs") === "1";
 let thumbs = {};
 let thumbSize = localStorage.getItem("thumbsize") || "3x3"; // "6" / "4" per row, or "3x3" = nine fill the screen
+let focusId = null; // keyboard cursor
+let sessions = [];
+let sweeping = false;
 let wins = [], tabs = [], openedAt = {}, kept = {};
 let selected = new Set();
 let winFilter = new Set();
@@ -136,7 +139,7 @@ function toggle(id) {
 // ---------- rendering ----------
 function tile(t, dupCount) {
   const wi = wins.findIndex((w) => w.id === t.windowId);
-  const li = el("div", "tile" + (t.active ? " active" : "") + (selected.has(t.id) ? " sel" : ""));
+  const li = el("div", "tile" + (t.active ? " active" : "") + (selected.has(t.id) ? " sel" : "") + (focusId === t.id ? " kfocus" : ""));
   li.draggable = true;
   li.dataset.id = t.id;
 
@@ -185,6 +188,7 @@ function tile(t, dupCount) {
   }
 
   li.addEventListener("click", async (e) => {
+    focusId = t.id;
     if (e.shiftKey && lastClicked !== null) {
       const a = order.indexOf(lastClicked), b = order.indexOf(t.id);
       if (a >= 0 && b >= 0) order.slice(Math.min(a, b), Math.max(a, b) + 1).forEach((id) => selected.add(id));
@@ -292,6 +296,8 @@ function render() {
   document.body.classList.toggle("thumbs", thumbsOn);
   $("thumbbtn").classList.toggle("on", thumbsOn);
   $("thumbsize").hidden = !thumbsOn;
+  $("sweepbtn").hidden = !thumbsOn;
+  if ($("sessions").open) renderSessions();
   document.querySelectorAll("#thumbsize button").forEach((b) => b.classList.toggle("on", b.dataset.size === thumbSize));
   document.body.style.setProperty("--cols", thumbSize === "3x3" ? 3 : thumbSize);
   document.body.classList.toggle("fit", thumbsOn && thumbSize === "3x3");
@@ -340,12 +346,114 @@ function render() {
   // selection bar
   $("selbar").hidden = !selected.size;
   $("selcount").textContent = `${selected.size} selected`;
+  if (focusId !== null && !order.includes(focusId)) focusId = null;
   const mv = $("moveto");
   mv.replaceChildren(new Option("Choose…", ""), ...wins.map((w, i) => new Option(`Window ${i + 1}`, w.id)), new Option("New window", "new"));
 }
 
+// ---------- saved sessions ----------
+const savable = (t) => /^(https?|file|ftp):/.test(t.url || "");
+
+async function saveSession(list, name, close) {
+  const byWin = new Map();
+  list.filter(savable).forEach((t) => {
+    if (!byWin.has(t.windowId)) byWin.set(t.windowId, []);
+    byWin.get(t.windowId).push({ url: t.url, title: t.title || t.url, pinned: t.pinned, fav: t.favIconUrl && !t.favIconUrl.startsWith("data:") ? t.favIconUrl : "" });
+  });
+  const groups = [...byWin.values()];
+  const n = groups.reduce((c, g) => c + g.length, 0);
+  if (!n) { toast("Nothing to save"); return; }
+  const sess = { id: String(Date.now()), name: name || `${new Date().toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`, savedAt: Date.now(), windows: groups };
+  await chrome.storage.local.set({ sessions: [sess, ...sessions] });
+  if (close) await closeTabs(list.filter(savable).map((t) => t.id));
+  else toast(`Saved ${n} tab${n > 1 ? "s" : ""} as "${sess.name}"`);
+}
+
+async function restoreSession(sess) {
+  for (const urls of sess.windows) {
+    const w = await chrome.windows.create({ url: urls.map((t) => t.url), focused: false });
+    await Promise.all(w.tabs.map((tab, i) => urls[i]?.pinned ? chrome.tabs.update(tab.id, { pinned: true }) : null));
+  }
+  toast(`Restored "${sess.name}"`);
+}
+
+function fillScope() {
+  const sel = $("sessscope");
+  const prev = sel.value;
+  sel.replaceChildren(
+    ...(selected.size ? [new Option(`Selected tabs (${selected.size})`, "sel")] : []),
+    new Option("All windows", "all"),
+    ...wins.map((w, i) => new Option(`Window ${i + 1} (${w.tabs.length} tabs)`, w.id)),
+  );
+  if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+}
+
+function renderSessions() {
+  fillScope();
+  const box = $("sesslist");
+  box.replaceChildren();
+  if (!sessions.length) box.append(el("div", "empty", "No saved sessions yet"));
+  sessions.forEach((s) => {
+    const n = s.windows.reduce((c, g) => c + g.length, 0);
+    const row = el("div", "sess");
+    const info = el("div", "sinfo");
+    info.append(el("div", "sname", s.name), el("div", "ssub", `${n} tabs · ${s.windows.length} window${s.windows.length > 1 ? "s" : ""} · saved ${ago(Date.now() - s.savedAt)} ago`));
+    const sites = [...new Set(s.windows.flat().map((t) => hostOf(t.url)))].slice(0, 4).join(", ");
+    info.append(el("div", "ssub", sites));
+    const open = el("button", "", "Restore");
+    open.addEventListener("click", () => restoreSession(s));
+    const del = el("button", "plain", "Delete");
+    del.addEventListener("click", () => chrome.storage.local.set({ sessions: sessions.filter((x) => x.id !== s.id) }));
+    row.append(info, open, del);
+    box.append(row);
+  });
+}
+
+// ---------- capture sweep ----------
+async function sweep() {
+  if (sweeping) { sweeping = false; return; }
+  const todo = tabs.filter((t) => !thumbs[t.id] && /^(https?|file):/.test(t.url));
+  if (!todo.length) { toast("Every tab already has a preview"); return; }
+  sweeping = true;
+  const here = await chrome.tabs.getCurrent();
+  const prevActive = wins.map((w) => ({ windowId: w.id, tabId: w.tabs.find((t) => t.active)?.id }));
+  let done = 0;
+  for (const t of todo) {
+    if (!sweeping) break;
+    $("sweepbtn").textContent = `⏹ Stop (${done}/${todo.length})`;
+    try {
+      await chrome.tabs.update(t.id, { active: true });
+      for (let i = 0; i < 20; i++) { if ((await chrome.tabs.get(t.id)).status === "complete") break; await new Promise((r) => setTimeout(r, 250)); }
+      await new Promise((r) => setTimeout(r, 500));
+      await chrome.runtime.sendMessage({ type: "capture", tabId: t.id, windowId: t.windowId });
+    } catch {}
+    done++;
+  }
+  for (const p of prevActive) if (p.tabId) { try { await chrome.tabs.update(p.tabId, { active: true }); } catch {} }
+  try { await chrome.tabs.update(here.id, { active: true }); await chrome.windows.update(here.windowId, { focused: true }); } catch {}
+  sweeping = false;
+  $("sweepbtn").textContent = "📸 Capture previews";
+  toast(`Captured previews for ${done} tab${done > 1 ? "s" : ""}`);
+}
+
+// ---------- keyboard cursor ----------
+function moveFocus(dir) {
+  if (!order.length) return;
+  let i = order.indexOf(focusId);
+  if (i < 0) i = 0;
+  else {
+    const perRow = document.body.classList.contains("thumbs") ? (thumbSize === "3x3" ? 3 : +thumbSize) : 1;
+    const step = dir === "left" ? -1 : dir === "right" ? 1 : dir === "up" ? -perRow : perRow;
+    i = Math.min(order.length - 1, Math.max(0, i + step));
+  }
+  focusId = order[i];
+  render();
+  document.querySelector(".tile.kfocus")?.scrollIntoView({ block: "nearest" });
+}
+
 async function load() {
-  const s = await chrome.storage.local.get(["openedAt", "kept"]);
+  const s = await chrome.storage.local.get(["openedAt", "kept", "sessions"]);
+  sessions = s.sessions || [];
   openedAt = s.openedAt || {};
   kept = s.kept || {};
   wins = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
@@ -383,15 +491,41 @@ $("moveto").addEventListener("change", (e) => {
   if (v) moveTabs([...selected], v === "new" ? v : +v);
 });
 $("undo").addEventListener("click", undoLast);
+$("sweepbtn").addEventListener("click", sweep);
+$("sessbtn").addEventListener("click", () => { $("sessions").showModal(); renderSessions(); });
+$("sessx").addEventListener("click", () => $("sessions").close());
+$("sessions").addEventListener("click", (e) => { if (e.target === $("sessions")) $("sessions").close(); });
+$("sesssave").addEventListener("click", async () => {
+  const sc = $("sessscope").value;
+  const list = sc === "sel" ? tabs.filter((t) => selected.has(t.id)) : sc === "all" ? tabs : tabs.filter((t) => t.windowId === +sc);
+  const close = $("sessclose").checked;
+  await saveSession(list, $("sessname").value.trim(), close);
+  $("sessname").value = "";
+  if (close) $("sessions").close();
+});
+$("selsave").addEventListener("click", () => saveSession(tabs.filter((t) => selected.has(t.id)), "", true));
 
 document.addEventListener("keydown", (e) => {
-  const typing = document.activeElement === $("search");
+  const typing = document.activeElement === $("search") || document.activeElement?.closest("dialog");
+  if (typing && document.activeElement.closest("dialog")) return;
   if (e.key === "/" && !typing) { e.preventDefault(); $("search").focus(); }
   else if (e.key === "Escape") {
     if (typing && $("search").value) { $("search").value = ""; render(); }
     else { selected.clear(); winFilter.clear(); $("search").blur(); render(); }
   } else if (!typing && (e.key === "Delete" || e.key === "Backspace") && selected.size) { e.preventDefault(); closeTabs([...selected]); }
   else if (!typing && (e.ctrlKey || e.metaKey) && e.key === "a") { e.preventDefault(); order.forEach((id) => selected.add(id)); render(); }
+  else if (!typing && !e.ctrlKey && !e.metaKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) { e.preventDefault(); moveFocus(e.key.slice(5).toLowerCase()); }
+  else if (!typing && !e.ctrlKey && !e.metaKey && e.key === " " && focusId !== null) { e.preventDefault(); toggle(focusId); render(); }
+  else if (!typing && e.key === "Enter" && focusId !== null) {
+    const t = tabs.find((x) => x.id === focusId);
+    if (t) { chrome.tabs.update(t.id, { active: true }); chrome.windows.update(t.windowId, { focused: true }); }
+  }
+  else if (!typing && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "x" && (selected.size || focusId !== null)) {
+    const ids = selected.size ? [...selected] : [focusId];
+    const i = order.indexOf(focusId);
+    closeTabs(ids);
+    focusId = order.filter((id) => !ids.includes(id))[Math.min(i, order.length - ids.length - 1)] ?? null;
+  }
   else if (!typing && (e.ctrlKey || e.metaKey) && e.key === "z" && undoInfo) { e.preventDefault(); undoLast(); }
 });
 
