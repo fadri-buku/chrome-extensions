@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "JSON to Excel",
+  "version": "1.0.0",
+  "description": "Convert JSON to an Excel (.xlsx) file, or copy it as a table to paste into Google Sheets. No permissions, no network calls.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "JSON to Excel"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
