@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "JSON Formatter",
-  "version": "1.0.0",
-  "description": "Minify or beautify JSON right from the toolbar popup. No permissions, no network calls.",
+  "version": "1.2.0",
+  "description": "Minify, beautify or convert JSON to CSV, or create a Google Sheet in your Drive straight from the toolbar popup.",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -16,5 +16,18 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuPbGDyT0hox4rjQm2Tcnp5i8drq7jV7MkbMpniQu25nlCEtEy+0bmBkL48ufq9CAAne+zJMLNpR/Zh6FHn0N2bCBBaYAm2obn74HLC+qgTYi7iDpkGY4anzj5iVRQncmLWaNBwBqSOweR/kFFgDRXalzBiK8Ium4eY7/c2KGS3Eui7+aYZeBVjQ+ey6JDIgpkcy9IfT6Zb+6anD4/fC0APqWjoJvkDv/pwSp5AsCUlaN5/U5ZtqdnyBTJ8jG7XbbaMEy2BflC46BRnjWUaOSUi6Y9NDOGfryJ2BgDLLNqEEtgjFb358jowSvOLE63tDqziagCHsTfOrW/HyQDJrlpQIDAQAB",
+  "permissions": [
+    "identity"
+  ],
+  "host_permissions": [
+    "https://www.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "REPLACE_WITH_YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive.file"
+    ]
   }
 }
