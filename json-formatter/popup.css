@@ -120,7 +120,7 @@ button:active {
   color: var(--muted);
 }
 
-#csv-download {
+#sheet-create {
   background: var(--accent);
   color: var(--accent-fg);
   border-color: var(--accent);

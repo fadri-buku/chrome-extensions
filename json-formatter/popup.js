@@ -131,3 +131,63 @@ document.getElementById("csv-copy").addEventListener("click", async () => {
     setStatus(err.message, "error");
   }
 });
+
+// ---------- Create a Google Sheet in the user's Drive ----------
+// Uses the narrow drive.file scope: the extension can only see files it
+// created itself, and the new sheet is private to the signed-in account.
+
+function getToken(interactive) {
+  return new Promise((resolve, reject) => {
+    chrome.identity.getAuthToken({ interactive }, (token) => {
+      if (chrome.runtime.lastError || !token) {
+        reject(new Error(chrome.runtime.lastError?.message || "Sign-in failed"));
+      } else resolve(token);
+    });
+  });
+}
+
+function uploadSheet(csv, token) {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const name = `JSON export ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const boundary = "jsonfmt" + Math.random().toString(36).slice(2);
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+    JSON.stringify({ name, mimeType: "application/vnd.google-apps.spreadsheet" }) +
+    `\r\n--${boundary}\r\nContent-Type: text/csv; charset=UTF-8\r\n\r\n${csv}\r\n--${boundary}--`;
+  return fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": `multipart/related; boundary=${boundary}`,
+    },
+    body,
+  });
+}
+
+document.getElementById("sheet-create").addEventListener("click", async () => {
+  let csv;
+  try {
+    csv = csvFromInput();
+  } catch (err) {
+    setStatus(err.message, "error");
+    return;
+  }
+  try {
+    setStatus("Creating sheet…");
+    let token = await getToken(true);
+    let res = await uploadSheet(csv, token);
+    if (res.status === 401) {
+      // Cached token expired/revoked: drop it and retry once.
+      await new Promise((r) => chrome.identity.removeCachedAuthToken({ token }, r));
+      token = await getToken(true);
+      res = await uploadSheet(csv, token);
+    }
+    if (!res.ok) throw new Error(`Drive error ${res.status}`);
+    const file = await res.json();
+    chrome.tabs.create({ url: file.webViewLink });
+    setStatus("Sheet created in your Drive", "ok");
+  } catch (err) {
+    setStatus(err.message, "error");
+  }
+});
