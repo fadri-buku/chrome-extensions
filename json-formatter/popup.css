@@ -113,3 +113,15 @@ button:active {
   color: var(--accent-fg);
   border-color: var(--accent);
 }
+
+.hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+#csv-download {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}

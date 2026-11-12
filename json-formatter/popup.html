@@ -19,6 +19,11 @@
     <button id="copy" title="Copy result to clipboard">Copy</button>
     <button id="clear" title="Clear the textarea">Clear</button>
   </div>
+  <div class="toolbar">
+    <button id="csv-download" title="Convert JSON to CSV and download it (opens in Excel / Google Sheets)">Download CSV</button>
+    <button id="csv-copy" title="Copy JSON as CSV text">Copy CSV</button>
+  </div>
+  <p class="hint">CSV: nested objects become <code>a.b</code> columns; arrays of values are joined.</p>
 
   <script src="popup.js"></script>
 </body>

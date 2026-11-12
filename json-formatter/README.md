@@ -10,6 +10,12 @@ text you paste into it.
 - **Minify** — strips all whitespace down to a single line.
 - Validates as it formats: invalid JSON shows the parser's error message
   instead of silently failing.
+- **Download CSV / Copy CSV** — converts JSON (array of objects, a single
+  object, or `{"items": [...]}`) to a spreadsheet-ready CSV. Nested objects
+  become dotted columns (`address.city`); arrays of values are joined with
+  `, `; other nested arrays stay as JSON text. Everything runs locally, so
+  your data never leaves your browser. Text starting with `= + - @` is
+  prefixed with `'` to avoid spreadsheet formula injection.
 - **Copy** button to grab the result, **Clear** to reset the textarea.
 - Light/dark theme, follows your OS preference.
 
